@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar de Oportunidades B3</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e0f;
+    --surface: #111618;
+    --border: #1e2a2d;
+    --accent: #00d4aa;
+    --accent2: #f5a623;
+    --accent3: #ff6b6b;
+    --text: #e8f4f0;
+    --muted: #5a7a74;
+    --card: #131c1e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+    position: relative;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow orb */
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(0,212,170,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 860px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid rgba(0,212,170,0.3);
+    padding: 5px 14px;
+    border-radius: 2px;
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(32px, 6vw, 56px);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -2px;
+    color: var(--text);
+    margin-bottom: 12px;
+  }
+
+  h1 span {
+    color: var(--accent);
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    line-height: 1.6;
+  }
+
+  /* Indicadores badge */
+  .indicators {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    margin: 24px 0 40px;
+  }
+
+  .badge {
+    background: rgba(0,212,170,0.06);
+    border: 1px solid rgba(0,212,170,0.15);
+    border-radius: 2px;
+    padding: 4px 12px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--accent);
+  }
+
+  /* Search Button */
+  .search-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 48px;
+  }
+
+  .btn-search {
+    position: relative;
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: transparent;
+    border: 2px solid var(--accent);
+    cursor: pointer;
+    outline: none;
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent);
+    transition: all 0.3s ease;
+    overflow: hidden;
+  }
+
+  .btn-search::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--accent), transparent, var(--accent));
+    opacity: 0;
+    transition: opacity 0.3s;
+    animation: spin 2s linear infinite;
+  }
+
+  .btn-search::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    background: var(--surface);
+    z-index: 1;
+  }
+
+  .btn-search span {
+    position: relative;
+    z-index: 2;
+  }
+
+  .btn-search:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 40px rgba(0,212,170,0.25), 0 0 80px rgba(0,212,170,0.1);
+    color: var(--bg);
+  }
+
+  .btn-search:hover::before {
+    opacity: 1;
+  }
+
+  .btn-search:hover::after {
+    background: var(--accent);
+  }
+
+  .btn-search:hover span {
+    color: var(--bg);
+  }
+
+  .btn-search:active {
+    transform: scale(0.98);
+  }
+
+  .btn-search.loading::before {
+    opacity: 1;
+  }
+
+  .btn-search.loading::after {
+    background: var(--surface);
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 32px;
+    justify-content: center;
+    min-height: 20px;
+    text-transform: uppercase;
+  }
+
+  .pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* Results */
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .section-label {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding-left: 2px;
+    border-left: 2px solid var(--accent2);
+    padding-left: 10px;
+  }
+
+  .section-label.fiis { border-color: var(--accent); }
+
+  .cards-group {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 22px 20px;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.5s ease;
+  }
+
+  .card.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent2);
+  }
+
+  .card.fii::before {
+    background: var(--accent);
+  }
+
+  .card:hover {
+    border-color: rgba(0,212,170,0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  .card-ticker {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 4px;
+  }
+
+  .card-name {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    margin-bottom: 16px;
+    line-height: 1.4;
+  }
+
+  .metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .metric:last-child { border-bottom: none; }
+
+  .metric-label {
+    color: var(--muted);
+    letter-spacing: 0.5px;
+  }
+
+  .metric-value {
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .metric-value.good { color: var(--accent); }
+  .metric-value.warn { color: var(--accent2); }
+  .metric-value.bad  { color: var(--accent3); }
+
+  .score-bar {
+    margin-top: 14px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .score-fill {
+    height: 100%;
+    background: var(--accent2);
+    border-radius: 2px;
+    transition: width 1s ease 0.3s;
+    width: 0;
+  }
+
+  .card.fii .score-fill { background: var(--accent); }
+
+  .score-label {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+  }
+
+  .why {
+    margin-top: 12px;
+    font-size: 10px;
+    line-height: 1.6;
+    color: var(--muted);
+    font-style: italic;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+
+  /* Error */
+  .error-msg {
+    text-align: center;
+    color: var(--accent3);
+    font-size: 13px;
+    padding: 32px;
+    border: 1px solid rgba(255,107,107,0.2);
+    border-radius: 4px;
+    background: rgba(255,107,107,0.03);
+  }
+
+  /* Disclaimer */
+  .disclaimer {
+    margin-top: 40px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    line-height: 1.7;
+    text-align: center;
+  }
+
+  .timestamp {
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  @media (max-width: 600px) {
+    .cards-group { grid-template-columns: 1fr; }
+    .btn-search { width: 130px; height: 130px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <div class="tag">⬡ B3 Radar</div>
+    <h1>Oportunidades<br><span>de Mercado</span></h1>
+    <p class="subtitle">Análise em tempo real · Ações e FIIs subvalorizados da bolsa brasileira</p>
+    <div class="indicators">
+      <span class="badge">P/VP &lt; 1.5</span>
+      <span class="badge">Dividend Yield</span>
+      <span class="badge">P/L atrativo</span>
+      <span class="badge">ROE</span>
+      <span class="badge">Momentum</span>
+      <span class="badge">Liquidez</span>
+    </div>
+  </header>
+
+  <div class="search-wrap">
+    <button class="btn-search" id="btnSearch" onclick="buscar()">
+      <span id="btnLabel">Pesquisar</span>
+    </button>
+  </div>
+
+  <div class="status-bar" id="statusBar"></div>
+  <div id="results"></div>
+</div>
+
+<script>
+async function buscar() {
+  const btn = document.getElementById('btnSearch');
+  const label = document.getElementById('btnLabel');
+  const status = document.getElementById('statusBar');
+  const results = document.getElementById('results');
+
+  if (btn.classList.contains('loading')) return;
+
+  btn.classList.add('loading');
+  label.textContent = '...';
+  results.innerHTML = '';
+
+  const steps = [
+    'Conectando à B3...',
+    'Varrendo indicadores...',
+    'Filtrando P/VP < 1.5...',
+    'Analisando dividend yield...',
+    'Calculando scores...',
+    'Compilando resultados...'
+  ];
+
+  let stepIdx = 0;
+  const interval = setInterval(() => {
+    if (stepIdx < steps.length) {
+      status.innerHTML = `<div class="pulse"></div>${steps[stepIdx++]}`;
+    }
+  }, 1800);
+
+  const prompt = `Você é um analista de investimentos especializado em renda variável brasileira (B3). 
+Hoje é ${new Date().toLocaleDateString('pt-BR')}.
+
+Faça uma pesquisa web e identifique:
+- 3 AÇÕES da B3 com excelente oportunidade de compra AGORA
+- 3 FIIs (Fundos de Investimento Imobiliário) com excelente oportunidade de compra AGORA
+
+Critérios obrigatórios para seleção:
+- P/VP preferencialmente abaixo de 1.5
+- Dividend Yield atrativo (acima de 6% para ações, acima de 8% para FIIs)
+- P/L abaixo de 15 para ações
+- ROE acima de 10% para ações
+- Boa liquidez diária
+- Fundamentos sólidos
+- Preço atual com desconto em relação ao valor justo
+
+Responda SOMENTE com um JSON válido neste formato exato (sem markdown, sem explicação fora do JSON):
+{
+  "acoes": [
+    {
+      "ticker": "XXXX3",
+      "nome": "Nome da Empresa",
+      "preco": "R$ 00,00",
+      "pvp": "0.00",
+      "pl": "0.0",
+      "roe": "00%",
+      "dy": "00%",
+      "score": 85,
+      "motivo": "Breve justificativa de 1-2 frases sobre a oportunidade"
+    }
+  ],
+  "fiis": [
+    {
+      "ticker": "XXXX11",
+      "nome": "Nome do FII",
+      "preco": "R$ 00,00",
+      "pvp": "0.00",
+      "dy": "00%",
+      "vacancia": "0%",
+      "segmento": "Logístico / Lajes / Shoppings / etc",
+      "score": 85,
+      "motivo": "Breve justificativa de 1-2 frases sobre a oportunidade"
+    }
+  ]
+}`;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    clearInterval(interval);
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+
+    // Extract text from content blocks
+    const textContent = data.content
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('');
+
+    // Parse JSON from response
+    const jsonMatch = textContent.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('Formato de resposta inválido');
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    btn.classList.remove('loading');
+    label.textContent = 'Pesquisar';
+    status.innerHTML = `<div class="pulse"></div>Atualizado em ${new Date().toLocaleTimeString('pt-BR')}`;
+
+    renderResults(parsed);
+
+  } catch (err) {
+    clearInterval(interval);
+    btn.classList.remove('loading');
+    label.textContent = 'Pesquisar';
+    status.innerHTML = '';
+    results.innerHTML = `<div class="error-msg">⚠ Erro ao buscar dados: ${err.message}<br><small>Tente novamente em instantes.</small></div>`;
+    console.error(err);
+  }
+}
+
+function renderResults(data) {
+  const results = document.getElementById('results');
+
+  let html = `
+    <div class="results-grid">
+      <div>
+        <div class="section-label">▲ Ações — Top 3 Oportunidades</div>
+        <div class="cards-group" id="acoesGroup">
+          ${data.acoes.map((a, i) => `
+          <div class="card" id="acao-${i}" style="transition-delay: ${i*0.15}s">
+            <div class="card-ticker">${a.ticker}</div>
+            <div class="card-name">${a.nome}</div>
+            <div class="metrics">
+              <div class="metric">
+                <span class="metric-label">PREÇO</span>
+                <span class="metric-value">${a.preco}</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">P/VP</span>
+                <span class="metric-value ${parseFloat(a.pvp) < 1 ? 'good' : parseFloat(a.pvp) < 1.5 ? 'warn' : 'bad'}">${a.pvp}</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">P/L</span>
+                <span class="metric-value ${parseFloat(a.pl) < 10 ? 'good' : parseFloat(a.pl) < 15 ? 'warn' : 'bad'}">${a.pl}</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">ROE</span>
+                <span class="metric-value good">${a.roe}</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">DY</span>
+                <span class="metric-value good">${a.dy}</span>
+              </div>
+            </div>
+            <div class="score-bar">
+              <div class="score-fill" data-width="${a.score}" style="width:0%"></div>
+            </div>
+            <div class="score-label">
+              <span>SCORE</span>
+              <span>${a.score}/100</span>
+            </div>
+            <div class="why">${a.motivo}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div>
+        <div class="section-label fiis">◈ FIIs — Top 3 Oportunidades</div>
+        <div class="cards-group" id="fiisGroup">
+          ${data.fiis.map((f, i) => `
+          <div class="card fii" id="fii-${i}" style="transition-delay: ${(i+3)*0.15}s">
+            <div class="card-ticker">${f.ticker}</div>
+            <div class="card-name">${f.nome}<br><small>${f.segmento}</small></div>
+            <div class="metrics">
+              <div class="metric">
+                <span class="metric-label">PREÇO</span>
+                <span class="metric-value">${f.preco}</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">P/VP</span>
+                <span class="metric-value ${parseFloat(f.pvp) < 0.9 ? 'good' : parseFloat(f.pvp) < 1.2 ? 'warn' : 'bad'}">${f.pvp}</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">DY 12M</span>
+                <span class="metric-value good">${f.dy}</span>
+              </div>
+              <div class="metric">
+                <span class="metric-label">VACÂNCIA</span>
+                <span class="metric-value ${parseFloat(f.vacancia) < 5 ? 'good' : parseFloat(f.vacancia) < 15 ? 'warn' : 'bad'}">${f.vacancia}</span>
+              </div>
+            </div>
+            <div class="score-bar">
+              <div class="score-fill" data-width="${f.score}" style="width:0%"></div>
+            </div>
+            <div class="score-label">
+              <span>SCORE</span>
+              <span>${f.score}/100</span>
+            </div>
+            <div class="why">${f.motivo}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="disclaimer">
+      ⚠ Esta análise é gerada por inteligência artificial com dados públicos e tem caráter informativo.<br>
+      Não constitui recomendação de investimento. Consulte sempre um assessor financeiro certificado.
+    </div>
+    <div class="timestamp">Dados obtidos em tempo real · ${new Date().toLocaleString('pt-BR')}</div>
+  `;
+
+  results.innerHTML = html;
+
+  // Animate cards in
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.card').forEach(card => {
+      setTimeout(() => card.classList.add('show'), 50);
+    });
+    // Animate score bars
+    setTimeout(() => {
+      document.querySelectorAll('.score-fill').forEach(bar => {
+        bar.style.width = bar.dataset.width + '%';
+      });
+    }, 400);
+  });
+}
+</script>
+</body>
+</html>

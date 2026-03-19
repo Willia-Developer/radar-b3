@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B3 Radar</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0e0f;color:#e8f4f0;font-family:'DM Mono',monospace;min-height:100vh;padding:36px 16px 60px;display:flex;flex-direction:column;align-items:center}
+.grid-bg{position:fixed;inset:0;background-image:linear-gradient(rgba(0,212,170,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,170,.04) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+.glow{position:fixed;top:-180px;left:50%;transform:translateX(-50%);width:500px;height:500px;background:radial-gradient(circle,rgba(0,212,170,.09) 0%,transparent 70%);pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;width:100%;max-width:860px}
+.tag{display:inline-block;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#00d4aa;border:1px solid rgba(0,212,170,.3);padding:5px 14px;border-radius:2px;margin-bottom:18px}
+h1{font-family:'Syne',sans-serif;font-size:clamp(28px,7vw,52px);font-weight:800;line-height:1.05;letter-spacing:-2px;margin-bottom:10px}
+h1 span{color:#00d4aa}
+.sub{color:#5a7a74;font-size:12px;letter-spacing:.5px;line-height:1.6}
+.badges{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin:18px 0 36px}
+.badge{background:rgba(0,212,170,.06);border:1px solid rgba(0,212,170,.15);border-radius:2px;padding:4px 11px;font-size:11px;letter-spacing:1px;color:#00d4aa}
+.btn-wrap{display:flex;justify-content:center;margin-bottom:36px}
+.btn{width:148px;height:148px;border-radius:50%;background:transparent;border:2.5px solid #00d4aa;cursor:pointer;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#00d4aa;transition:all .3s;outline:none}
+.btn:hover,.btn.on{background:#00d4aa;color:#0a0e0f;box-shadow:0 0 40px rgba(0,212,170,.3),0 0 80px rgba(0,212,170,.12)}
+.btn:active{transform:scale(.97)}
+.status{display:flex;align-items:center;gap:9px;font-size:11px;letter-spacing:1px;color:#5a7a74;justify-content:center;margin-bottom:28px;min-height:20px;text-transform:uppercase}
+.dot{width:6px;height:6px;border-radius:50%;background:#00d4aa;flex-shrink:0;animation:pulse 1.5s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.sec-label{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#5a7a74;padding-left:10px;margin-bottom:12px}
+.sec-label.acoes{border-left:2px solid #f5a623}
+.sec-label.fiis{border-left:2px solid #00d4aa}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:28px}
+.card{background:#131c1e;border:1px solid #1e2a2d;border-radius:4px;padding:20px 18px;position:relative;opacity:0;transform:translateY(18px);transition:opacity .5s ease,transform .5s ease,border-color .2s}
+.card:hover{border-color:rgba(0,212,170,.3);transform:translateY(-2px)!important}
+.card.show{opacity:1;transform:translateY(0)}
+.card-top{position:absolute;top:0;left:0;right:0;height:2px;border-radius:4px 4px 0 0}
+.card.acao .card-top{background:#f5a623}
+.card.fii .card-top{background:#00d4aa}
+.ticker{font-family:'Syne',sans-serif;font-size:21px;font-weight:800;letter-spacing:-1px;margin-bottom:3px}
+.cname{font-size:11px;color:#5a7a74;margin-bottom:14px;line-height:1.4}
+.metric{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid #1e2a2d}
+.ml{color:#5a7a74;letter-spacing:.5px}
+.mv{font-weight:500}
+.good{color:#00d4aa}.warn{color:#f5a623}.bad{color:#ff6b6b}.norm{color:#e8f4f0}
+.score-track{height:3px;background:#1e2a2d;border-radius:2px;overflow:hidden;margin-top:14px}
+.score-fill{height:100%;width:0;border-radius:2px;transition:width 1s ease .3s}
+.card.acao .score-fill{background:#f5a623}
+.card.fii .score-fill{background:#00d4aa}
+.score-row{display:flex;justify-content:space-between;margin-top:5px;font-size:10px;color:#5a7a74;letter-spacing:1px}
+.motivo{margin-top:10px;font-size:10px;line-height:1.6;color:#5a7a74;font-style:italic;border-top:1px solid #1e2a2d;padding-top:10px}
+.error{text-align:center;color:#ff6b6b;font-size:12px;padding:24px 16px;border:1px solid rgba(255,107,107,.2);border-radius:4px;background:rgba(255,107,107,.03);line-height:1.8;display:none}
+.disc{padding:14px;border:1px solid #1e2a2d;border-radius:4px;font-size:10px;color:#5a7a74;line-height:1.7;text-align:center}
+.ts{margin-top:7px;font-size:10px;color:#5a7a74;text-align:center;letter-spacing:1px}
+header{text-align:center;margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="glow"></div>
+<div class="wrap">
+  <header>
+    <div class="tag">⬡ B3 Radar</div>
+    <h1>Oportunidades<br><span>de Mercado</span></h1>
+    <p class="sub">Análise em tempo real · Ações e FIIs subvalorizados da B3</p>
+    <div class="badges">
+      <span class="badge">P/VP &lt; 1.5</span>
+      <span class="badge">Dividend Yield</span>
+      <span class="badge">P/L atrativo</span>
+      <span class="badge">ROE</span>
+      <span class="badge">Momentum</span>
+      <span class="badge">Liquidez</span>
+    </div>
+  </header>
+
+  <div style="max-width:420px;margin:0 auto 22px;padding:0 4px">
+    <div style="font-size:9px;letter-spacing:3px;text-transform:uppercase;color:#5a7a74;margin-bottom:7px;text-align:center">Chave de API Anthropic</div>
+    <div style="display:flex;align-items:center;gap:8px;background:#131c1e;border:1px solid #1e2a2d;border-radius:4px;padding:8px 12px">
+      <span style="font-size:12px;color:#5a7a74">🔑</span>
+      <input id="apiKeyInput" type="password" placeholder="sk-ant-api03-..."
+        style="flex:1;background:transparent;border:none;outline:none;color:#e8f4f0;font-size:12px;font-family:'DM Mono',monospace;letter-spacing:1px"
+        oninput="_apiKey=this.value"/>
+    </div>
+    <div style="font-size:9px;color:#2a3a3c;margin-top:5px;text-align:center">Chave usada apenas nesta sessão, nunca armazenada.</div>
+  </div>
+
+  <div class="btn-wrap">
+    <button class="btn" id="btn" onclick="buscar()">Pesquisar</button>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="error" id="error"></div>
+  <div id="results"></div>
+</div>
+
+<script>
+const STEPS = ["Conectando à B3...","Buscando dados...","Filtrando indicadores...","Analisando DY...","Calculando scores...","Compilando..."];
+let busy = false, stepTimer, stepIdx = 0;
+
+function setStatus(txt) {
+  document.getElementById('status').innerHTML = txt ? `<div class="dot"></div>${txt}` : '';
+}
+function showError(msg) {
+  const e = document.getElementById('error');
+  e.textContent = '⚠ ' + msg;
+  e.style.display = 'block';
+}
+function colorPvp(v, isFii) {
+  const n = parseFloat(v);
+  return isFii ? (n<0.9?'good':n<1.2?'warn':'bad') : (n<1.0?'good':n<1.5?'warn':'bad');
+}
+
+function findJSON(blocks) {
+  // Collect all text from all block types
+  let allText = '';
+  for (const b of blocks) {
+    if (b.type === 'text') allText += b.text + '\n';
+    if (b.type === 'tool_result') {
+      if (typeof b.content === 'string') allText += b.content + '\n';
+      if (Array.isArray(b.content)) allText += b.content.map(c=>c.text||'').join('\n') + '\n';
+    }
+  }
+  // Find all JSON-like objects, try longest first
+  const re = /\{[\s\S]*\}/g;
+  const found = [];
+  let m;
+  while ((m = re.exec(allText)) !== null) found.push(m[0]);
+  found.sort((a,b)=>b.length-a.length);
+  for (const s of found) {
+    try {
+      const p = JSON.parse(s);
+      if (p.acoes && p.fiis && Array.isArray(p.acoes) && Array.isArray(p.fiis)) return p;
+    } catch {}
+  }
+  return null;
+}
+
+let _apiKey = '';
+
+async function apiCall(messages) {
+  if (!_apiKey) throw new Error('Chave de API não informada.');
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': _apiKey.trim(),
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 2000,
+      tools: [{type:'web_search_20250305', name:'web_search'}],
+      messages
+    })
+  });
+  if (!r.ok) {
+    if (r.status === 401) throw new Error('Chave de API inválida ou sem permissão.');
+    if (r.status === 429) throw new Error('Limite de requisições atingido. Aguarde e tente novamente.');
+    throw new Error('HTTP ' + r.status);
+  }
+  return r.json();
+}
+
+const PROMPT = `Você é analista de renda variável da B3. Data: ${new Date().toLocaleDateString('pt-BR')}.
+
+Use a busca web para encontrar dados atuais e selecione:
+- 3 AÇÕES da B3 com P/VP<1.5, DY>6%, P/L<15, ROE>10%
+- 3 FIIs com P/VP<1.5, DY>8%
+
+Responda APENAS com JSON puro, sem texto antes ou depois, sem blocos de código:
+
+{"acoes":[{"ticker":"VALE3","nome":"Vale S.A.","preco":"R$ 60,50","pvp":"1.1","pl":"7.5","roe":"20%","dy":"9%","score":90,"motivo":"Sólidos fundamentos com desconto ao VP."},{"ticker":"BBAS3","nome":"Banco do Brasil","preco":"R$ 25,00","pvp":"0.9","pl":"5.0","roe":"22%","dy":"10%","score":92,"motivo":"Banco estatal com alto ROE e DY."},{"ticker":"CPLE6","nome":"Copel","preco":"R$ 10,00","pvp":"1.2","pl":"8.0","roe":"15%","dy":"7%","score":82,"motivo":"Elétrica com DY atrativo."}],"fiis":[{"ticker":"HGLG11","nome":"CSHG Logística","preco":"R$ 155,00","pvp":"0.95","dy":"9%","vacancia":"4%","segmento":"Logístico","score":88,"motivo":"P/VP abaixo de 1 com baixa vacância."},{"ticker":"XPML11","nome":"XP Malls","preco":"R$ 90,00","pvp":"0.85","dy":"10%","vacancia":"6%","segmento":"Shoppings","score":85,"motivo":"Shoppings premium com desconto."},{"ticker":"BTLG11","nome":"BTG Logística","preco":"R$ 100,00","pvp":"0.90","dy":"9%","vacancia":"3%","segmento":"Logístico","score":86,"motivo":"Portfólio logístico sólido."}]}
+
+Substitua os valores acima pelos dados reais e atuais que você encontrar na web.`;
+
+async function buscar() {
+  if (busy) return;
+  if (!_apiKey || _apiKey.trim().length < 20) {
+    showError('Informe sua chave de API Anthropic antes de pesquisar.');
+    return;
+  }
+  busy = true;
+  const btn = document.getElementById('btn');
+  btn.classList.add('on');
+  btn.textContent = '···';
+  document.getElementById('error').style.display = 'none';
+  document.getElementById('results').innerHTML = '';
+
+  stepIdx = 0;
+  setStatus(STEPS[stepIdx++]);
+  stepTimer = setInterval(() => { if(stepIdx<STEPS.length) setStatus(STEPS[stepIdx++]); }, 2800);
+
+  try {
+    const messages = [{role:'user', content: PROMPT}];
+    let result = null;
+    let rounds = 0;
+
+    while (!result && rounds < 6) {
+      rounds++;
+      const resp = await apiCall(messages);
+      console.log('Round', rounds, '| stop:', resp.stop_reason, '| blocks:', resp.content.map(b=>b.type).join(','));
+
+      result = findJSON(resp.content);
+      if (result) break;
+
+      if (resp.stop_reason === 'tool_use') {
+        // Add assistant turn
+        messages.push({role:'assistant', content: resp.content});
+        // Build tool results — web_search returns results inside the response content already
+        // We need to send back tool_result for each tool_use block
+        const toolResults = resp.content
+          .filter(b => b.type === 'tool_use')
+          .map(b => ({
+            type: 'tool_result',
+            tool_use_id: b.id,
+            content: b.output ? JSON.stringify(b.output) : 'Busca realizada com sucesso.'
+          }));
+        if (toolResults.length) {
+          messages.push({role:'user', content: toolResults});
+        }
+      } else {
+        // end_turn without JSON — ask again
+        messages.push({role:'assistant', content: resp.content});
+        messages.push({role:'user', content: 'Retorne APENAS o JSON conforme solicitado, sem nenhum texto adicional.'});
+      }
+    }
+
+    clearInterval(stepTimer);
+    if (!result) throw new Error('Não foi possível obter os dados. Tente novamente.');
+
+    setStatus('Atualizado às ' + new Date().toLocaleTimeString('pt-BR'));
+    renderCards(result);
+  } catch(e) {
+    clearInterval(stepTimer);
+    setStatus('');
+    showError(e.message);
+    console.error(e);
+  } finally {
+    busy = false;
+    btn.classList.remove('on');
+    btn.textContent = 'Pesquisar';
+  }
+}
+
+function renderCards(data) {
+  const r = document.getElementById('results');
+  r.innerHTML = `
+    <div class="sec-label acoes">▲ Ações — Top 3</div>
+    <div class="cards" id="ag"></div>
+    <div class="sec-label fiis">◈ FIIs — Top 3</div>
+    <div class="cards" id="fg"></div>
+    <div class="disc">⚠ Análise por IA com dados públicos. Não é recomendação de investimento.</div>
+    <div class="ts">Tempo real · ${new Date().toLocaleString('pt-BR')}</div>`;
+
+  (data.acoes||[]).slice(0,3).forEach((a,i) => {
+    document.getElementById('ag').insertAdjacentHTML('beforeend',`
+      <div class="card acao" style="transition-delay:${i*.15}s">
+        <div class="card-top"></div>
+        <div class="ticker">${a.ticker||''}</div>
+        <div class="cname">${a.nome||''}</div>
+        <div class="metric"><span class="ml">PREÇO</span><span class="mv norm">${a.preco||'-'}</span></div>
+        <div class="metric"><span class="ml">P/VP</span><span class="mv ${colorPvp(a.pvp,false)}">${a.pvp||'-'}</span></div>
+        <div class="metric"><span class="ml">P/L</span><span class="mv ${parseFloat(a.pl)<10?'good':parseFloat(a.pl)<15?'warn':'bad'}">${a.pl||'-'}</span></div>
+        <div class="metric"><span class="ml">ROE</span><span class="mv good">${a.roe||'-'}</span></div>
+        <div class="metric"><span class="ml">DY</span><span class="mv good">${a.dy||'-'}</span></div>
+        <div class="score-track"><div class="score-fill" data-w="${a.score||0}"></div></div>
+        <div class="score-row"><span>SCORE</span><span>${a.score||0}/100</span></div>
+        <div class="motivo">${a.motivo||''}</div>
+      </div>`);
+  });
+
+  (data.fiis||[]).slice(0,3).forEach((f,i) => {
+    document.getElementById('fg').insertAdjacentHTML('beforeend',`
+      <div class="card fii" style="transition-delay:${(i+3)*.15}s">
+        <div class="card-top"></div>
+        <div class="ticker">${f.ticker||''}</div>
+        <div class="cname">${f.nome||''}<br><small>${f.segmento||''}</small></div>
+        <div class="metric"><span class="ml">PREÇO</span><span class="mv norm">${f.preco||'-'}</span></div>
+        <div class="metric"><span class="ml">P/VP</span><span class="mv ${colorPvp(f.pvp,true)}">${f.pvp||'-'}</span></div>
+        <div class="metric"><span class="ml">DY 12M</span><span class="mv good">${f.dy||'-'}</span></div>
+        <div class="metric"><span class="ml">VACÂNCIA</span><span class="mv ${parseFloat(f.vacancia)<5?'good':parseFloat(f.vacancia)<15?'warn':'bad'}">${f.vacancia||'-'}</span></div>
+        <div class="score-track"><div class="score-fill" data-w="${f.score||0}"></div></div>
+        <div class="score-row"><span>SCORE</span><span>${f.score||0}/100</span></div>
+        <div class="motivo">${f.motivo||''}</div>
+      </div>`);
+  });
+
+  requestAnimationFrame(() => {
+    document.querySelectorAll('.card').forEach(c => c.classList.add('show'));
+    setTimeout(() => {
+      document.querySelectorAll('.score-fill').forEach(b => { b.style.width = b.dataset.w + '%'; });
+    }, 200);
+  });
+}
+</script>
+</body>
+</html>

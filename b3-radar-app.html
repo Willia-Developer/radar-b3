@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>B3 Radar</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #070d0e; color: #e8f4f0; font-family: monospace; }
+@keyframes pulse  { 0%,100%{opacity:1} 50%{opacity:.3} }
+@keyframes rot    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+@keyframes fadein { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+input:focus { border-color: rgba(0,212,170,.5) !important; outline: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+/* ── helpers ── */
+function parseR(v) {
+  return parseFloat(String(v||"").replace(/[R$\s.]/g,"").replace(",",".")) || 0;
+}
+function cvp(v,f) {
+  const n=parseFloat(v);
+  return f?(n<0.9?"#00d4aa":n<1.1?"#f5a623":"#ff6b6b"):(n<0.8?"#00d4aa":n<1.2?"#f5a623":"#ff6b6b");
+}
+function cpl(v)  { const n=parseFloat(v); return n<8?"#00d4aa":n<12?"#f5a623":"#ff6b6b"; }
+function cvac(v) { const n=parseFloat(v); return n<5?"#00d4aa":n<10?"#f5a623":"#ff6b6b"; }
+function cpay(v) { const n=parseFloat(v); return n<70?"#00d4aa":n<90?"#f5a623":"#ff6b6b"; }
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return [r,g,b];
+}
+
+function extrairJSON(txt) {
+  const cands=[]; let d=0,s=-1;
+  for(let i=0;i<txt.length;i++){
+    if(txt[i]==="{"){if(d===0)s=i;d++;}
+    else if(txt[i]==="}"){d--;if(d===0&&s>=0){cands.push(txt.slice(s,i+1));s=-1;}}
+  }
+  cands.sort((a,b)=>b.length-a.length);
+  for(const c of cands){
+    try{const p=JSON.parse(c);if(p.acoes&&p.fiis&&p.acoes.length>=3&&p.fiis.length>=3)return p;}catch(e){}
+  }
+  return null;
+}
+
+async function buscarDados(apiKey) {
+  if (!apiKey || apiKey.trim().length < 20) throw new Error("Chave de API inválida. Informe sua chave Anthropic.");
+
+  const prompt = `Você é analista de renda variável da B3, perfil CONSERVADOR. Data: ${new Date().toLocaleDateString("pt-BR")}.
+Selecione 3 AÇÕES e 3 FIIs da B3 com excelente oportunidade agora para perfil conservador.
+Critérios: P/VP<1.3, DY>8% acoes/>9% FIIs, P/L<12, ROE>12%, payout<90%, vacancia<10%.
+Inclua historico_dividendos (ultimos 6 meses, mais antigo primeiro).
+Para acoes: preco_teto_bazin e preco_teto_graham. Para FIIs: preco_teto_bazin.
+Responda SOMENTE com JSON puro, sem texto, sem markdown:
+{"acoes":[{"ticker":"BBSE3","nome":"BB Seguridade","preco":"R$ 34,60","pvp":"1.1","pl":"7.7","roe":"32%","dy":"13%","payout":"85%","ultimo_dividendo":"R$ 2,61","freq_dividendo":"Semestral","preco_teto_bazin":"R$ 71,00","preco_teto_graham":"R$ 48,00","historico_dividendos":["R$ 1,65","R$ 1,80","R$ 1,90","R$ 2,10","R$ 2,40","R$ 2,61"],"score":94,"motivo":"Motivo real."},{"ticker":"BBAS3","nome":"Banco do Brasil","preco":"R$ 25,16","pvp":"0.7","pl":"10.5","roe":"12%","dy":"5.8%","payout":"40%","ultimo_dividendo":"R$ 0,28","freq_dividendo":"Mensal","preco_teto_bazin":"R$ 23,00","preco_teto_graham":"R$ 28,00","historico_dividendos":["R$ 0,55","R$ 0,48","R$ 0,42","R$ 0,38","R$ 0,29","R$ 0,28"],"score":82,"motivo":"Motivo real."},{"ticker":"TAEE11","nome":"Taesa","preco":"R$ 42,95","pvp":"1.1","pl":"8.5","roe":"18%","dy":"7.5%","payout":"75%","ultimo_dividendo":"R$ 0,94","freq_dividendo":"Semestral","preco_teto_bazin":"R$ 53,00","preco_teto_graham":"R$ 47,00","historico_dividendos":["R$ 0,80","R$ 0,85","R$ 0,88","R$ 0,90","R$ 0,92","R$ 0,94"],"score":86,"motivo":"Motivo real."}],"fiis":[{"ticker":"HGLG11","nome":"Patria Logistica","preco":"R$ 158,45","pvp":"0.95","dy":"8.4%","vacancia":"3%","segmento":"Logistico","ultimo_dividendo":"R$ 1,10","payout":"80%","preco_teto_bazin":"R$ 220,00","historico_dividendos":["R$ 1,05","R$ 1,08","R$ 1,10","R$ 1,10","R$ 1,10","R$ 1,10"],"score":91,"motivo":"Motivo real."},{"ticker":"BTLG11","nome":"BTG Logistica","preco":"R$ 103,09","pvp":"1.0","dy":"9.2%","vacancia":"2%","segmento":"Logistico","ultimo_dividendo":"R$ 0,80","payout":"85%","preco_teto_bazin":"R$ 160,00","historico_dividendos":["R$ 0,79","R$ 0,79","R$ 0,80","R$ 0,80","R$ 0,80","R$ 0,80"],"score":87,"motivo":"Motivo real."},{"ticker":"XPML11","nome":"XP Malls","preco":"R$ 110,51","pvp":"0.92","dy":"10.2%","vacancia":"5%","segmento":"Shoppings","ultimo_dividendo":"R$ 0,92","payout":"88%","preco_teto_bazin":"R$ 184,00","historico_dividendos":["R$ 0,85","R$ 0,88","R$ 0,90","R$ 0,92","R$ 0,92","R$ 0,92"],"score":89,"motivo":"Motivo real."}]}
+Use dados reais e atuais.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey.trim(),
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-5",
+      max_tokens: 2000,
+      messages: [{ role:"user", content:prompt }]
+    })
+  });
+  if (!res.ok) {
+    let msg = "HTTP " + res.status;
+    if (res.status === 401) msg = "Chave de API inválida ou sem permissão. Verifique sua chave Anthropic.";
+    else if (res.status === 429) msg = "Limite de requisições atingido. Aguarde e tente novamente.";
+    throw new Error(msg);
+  }
+  const json = await res.json();
+  const txt = (json.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+  const data = extrairJSON(txt);
+  if (!data) throw new Error("Resposta invalida. Tente novamente.");
+  return data;
+}
+
+/* ── PDF ── */
+function gerarPDF(data) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:"portrait", unit:"mm", format:"a4" });
+  const PW = 210, M = 14;
+  let y = 0;
+
+  // paleta — sem spread operator
+  const COR_VERDE   = [0, 180, 140];
+  const COR_AMARELO = [220, 150, 30];
+  const COR_BRANCO  = [232, 244, 240];
+  const COR_ESCURO  = [7, 13, 14];
+  const COR_CARD    = [15, 26, 28];
+  const COR_MUTED   = [90, 120, 110];
+  const COR_LINHA   = [26, 38, 40];
+  const COR_VERMELHO= [255, 100, 100];
+
+  function setFill(rgb)   { doc.setFillColor(rgb[0],rgb[1],rgb[2]); }
+  function setDraw(rgb)   { doc.setDrawColor(rgb[0],rgb[1],rgb[2]); }
+  function setTxt(rgb)    { doc.setTextColor(rgb[0],rgb[1],rgb[2]); }
+
+  function corIndicador(hex) {
+    if (hex === "#00d4aa") return COR_VERDE;
+    if (hex === "#f5a623") return COR_AMARELO;
+    return COR_VERMELHO;
+  }
+
+  function checkPage(h) {
+    if (y + h > 282) { doc.addPage(); setFill(COR_ESCURO); doc.rect(0,0,PW,297,"F"); y = 14; }
+  }
+
+  // fundo primeira pagina
+  setFill(COR_ESCURO);
+  doc.rect(0,0,PW,297,"F");
+
+  // cabecalho
+  setFill([10,20,22]);
+  doc.rect(0,0,PW,38,"F");
+  setDraw(COR_VERDE);
+  doc.setLineWidth(0.4);
+  doc.line(0,38,PW,38);
+
+  doc.setFontSize(16);
+  doc.setFont("helvetica","bold");
+  setTxt(COR_BRANCO);
+  doc.text("B3 RADAR", M, 13);
+
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica","normal");
+  setTxt(COR_VERDE);
+  doc.text("PERFIL CONSERVADOR  -  OPORTUNIDADES DE MERCADO", M, 20);
+
+  doc.setFontSize(6.5);
+  setTxt(COR_MUTED);
+  doc.text("Gerado em: " + new Date().toLocaleString("pt-BR"), M, 28);
+  doc.text("Analise por IA - Nao constitui recomendacao de investimento", PW-M, 28, {align:"right"});
+
+  y = 46;
+
+  function secLabel(txt, cor) {
+    checkPage(14);
+    setFill(cor);
+    doc.rect(M, y, 2, 7, "F");
+    doc.setFontSize(8);
+    doc.setFont("helvetica","bold");
+    setTxt(cor);
+    doc.text(txt, M+5, y+5);
+    y += 12;
+  }
+
+  function card(item, isFii) {
+    const CH = 80;
+    checkPage(CH + 6);
+
+    const cor = isFii ? COR_VERDE : COR_AMARELO;
+
+    // fundo card
+    setFill(COR_CARD);
+    doc.roundedRect(M, y, PW-2*M, CH, 2, 2, "F");
+
+    // barra topo
+    setFill(cor);
+    doc.rect(M, y, PW-2*M, 1.8, "F");
+
+    // ticker
+    doc.setFontSize(14);
+    doc.setFont("helvetica","bold");
+    setTxt(COR_BRANCO);
+    doc.text(item.ticker, M+4, y+10);
+
+    // nome
+    doc.setFontSize(7);
+    doc.setFont("helvetica","normal");
+    setTxt(COR_MUTED);
+    const nomeTxt = (isFii && item.segmento) ? (item.nome + " - " + item.segmento) : item.nome;
+    doc.text(nomeTxt, M+4, y+16);
+
+    // barra score
+    const sw=45, sx=PW-M-sw-4;
+    setFill(COR_LINHA);
+    doc.roundedRect(sx, y+6, sw, 4, 1, 1, "F");
+    setFill(cor);
+    doc.roundedRect(sx, y+6, (sw*(item.score||0))/100, 4, 1, 1, "F");
+    doc.setFontSize(6);
+    setTxt(COR_MUTED);
+    doc.text("SCORE " + (item.score||0) + "/100", sx+sw/2, y+13, {align:"center"});
+
+    // linha divisoria
+    setDraw(COR_LINHA);
+    doc.setLineWidth(0.3);
+    doc.line(M+4, y+19, PW-M-4, y+19);
+
+    // metricas grid 3 colunas
+    const cols3 = [M+4, M+64, M+124];
+    const metricas = isFii ? [
+      ["PRECO",    item.preco,          null],
+      ["P/VP",     item.pvp,            cvp(item.pvp,true)],
+      ["DY 12M",   item.dy,             "#00d4aa"],
+      ["VACANCIA", item.vacancia,       cvac(item.vacancia)],
+      ["PAYOUT",   item.payout,         cpay(item.payout)],
+      ["ULT. DIV.",item.ultimo_dividendo,"#00d4aa"],
+    ] : [
+      ["PRECO",    item.preco,          null],
+      ["P/VP",     item.pvp,            cvp(item.pvp,false)],
+      ["P/L",      item.pl,             cpl(item.pl)],
+      ["ROE",      item.roe,            "#00d4aa"],
+      ["DY",       item.dy,             "#00d4aa"],
+      ["PAYOUT",   item.payout,         cpay(item.payout)],
+    ];
+
+    metricas.forEach(function(m, i) {
+      const label = m[0], value = m[1], corHex = m[2];
+      const cx = cols3[i % 3];
+      const cy = i < 3 ? y+25 : y+35;
+      doc.setFontSize(6);
+      doc.setFont("helvetica","normal");
+      setTxt(COR_MUTED);
+      doc.text(label, cx, cy);
+      doc.setFontSize(8);
+      doc.setFont("helvetica","bold");
+      if (corHex) { setTxt(corIndicador(corHex)); }
+      else { setTxt(COR_BRANCO); }
+      doc.text(String(value||"-"), cx, cy+5.5);
+    });
+
+    // ultimo dividendo destaque
+    const dy2 = y+46;
+    setFill([0,35,28]);
+    doc.roundedRect(M+4, dy2, PW-2*M-8, 11, 1, 1, "F");
+    doc.setFontSize(6);
+    doc.setFont("helvetica","normal");
+    setTxt(COR_MUTED);
+    doc.text("ULTIMO DIVIDENDO - " + (isFii ? "MENSAL" : (item.freq_dividendo||"")), M+8, dy2+4);
+    doc.setFontSize(11);
+    doc.setFont("helvetica","bold");
+    setTxt(COR_VERDE);
+    doc.text(String(item.ultimo_dividendo||"-"), M+8, dy2+9.5);
+
+    // sparkline historico
+    if (item.historico_dividendos && item.historico_dividendos.length >= 2) {
+      const vals = item.historico_dividendos.map(parseR);
+      const mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals), rng=mx-mn||0.01;
+      const spx=PW-M-46, spy=dy2, spw=42, sph=11;
+      for (let i=1; i<vals.length; i++) {
+        const x1=spx+(i-1)/(vals.length-1)*spw;
+        const y1=spy+sph-((vals[i-1]-mn)/rng*sph*0.8);
+        const x2=spx+i/(vals.length-1)*spw;
+        const y2=spy+sph-((vals[i]-mn)/rng*sph*0.8);
+        setDraw(cor);
+        doc.setLineWidth(0.5);
+        doc.line(x1,y1,x2,y2);
+      }
+    }
+
+    // preco teto
+    const ty = dy2+14;
+    const p = parseR(item.preco);
+    if (item.preco_teto_bazin) {
+      const t=parseR(item.preco_teto_bazin), ok=p<t;
+      const pct=ok?"("+((t-p)/t*100).toFixed(0)+"% mg)":"(acima)";
+      doc.setFontSize(6.5);
+      doc.setFont("helvetica","normal");
+      setTxt(COR_MUTED);
+      doc.text("Teto Bazin:", M+4, ty+3);
+      setTxt(ok?COR_VERDE:COR_VERMELHO);
+      doc.text(item.preco_teto_bazin+" "+pct, M+22, ty+3);
+    }
+    if (item.preco_teto_graham) {
+      const t=parseR(item.preco_teto_graham), ok=p<t;
+      const pct=ok?"("+((t-p)/t*100).toFixed(0)+"% mg)":"(acima)";
+      doc.setFontSize(6.5);
+      setTxt(COR_MUTED);
+      doc.text("Teto Graham:", M+75, ty+3);
+      setTxt(ok?COR_VERDE:COR_VERMELHO);
+      doc.text(item.preco_teto_graham+" "+pct, M+97, ty+3);
+    }
+
+    // motivo
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica","italic");
+    setTxt(COR_MUTED);
+    const lines = doc.splitTextToSize(item.motivo||"", PW-2*M-10);
+    doc.text(lines[0]||"", M+4, y+CH-3);
+
+    y += CH + 5;
+  }
+
+  // secao acoes
+  secLabel("ACOES - TOP 3 CONSERVADORAS", COR_AMARELO);
+  (data.acoes||[]).slice(0,3).forEach(function(a){ card(a, false); });
+
+  y += 4;
+
+  // secao fiis
+  secLabel("FIIs - TOP 3 CONSERVADORES", COR_VERDE);
+  (data.fiis||[]).slice(0,3).forEach(function(f){ card(f, true); });
+
+  // rodape
+  checkPage(20);
+  y += 4;
+  setFill([10,20,22]);
+  doc.rect(0, y, PW, 22, "F");
+  setDraw(COR_VERDE);
+  doc.setLineWidth(0.3);
+  doc.line(0, y, PW, y);
+  doc.setFontSize(6.5);
+  doc.setFont("helvetica","normal");
+  setTxt(COR_MUTED);
+  doc.text("Analise gerada por Inteligencia Artificial com dados de treinamento. Carater exclusivamente informativo.", M, y+7);
+  doc.text("Nao constitui recomendacao de investimento. Consulte sempre um assessor financeiro certificado.", M, y+13);
+  setTxt(COR_VERDE);
+  doc.text("B3 RADAR - Perfil Conservador", PW/2, y+19, {align:"center"});
+
+  const nome = "B3-Radar-" + new Date().toLocaleDateString("pt-BR").replace(/\//g,"-") + ".pdf";
+  doc.save(nome);
+}
+
+/* ── Componentes ── */
+
+function Metric({label, value, color}) {
+  return (
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"5px 0",borderBottom:"1px solid #1a2628"}}>
+      <span style={{color:"#4a6a64"}}>{label}</span>
+      <span style={{color:color||"#e8f4f0",fontWeight:500}}>{value||"—"}</span>
+    </div>
+  );
+}
+
+function Sparkline({data, color}) {
+  if (!data||data.length<2) return null;
+  const vals=data.map(parseR);
+  const mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals), rng=mx-mn||0.01;
+  const W=120,H=36,P=4;
+  const pts=vals.map(function(v,i){
+    return (P+(i/(vals.length-1))*(W-2*P))+","+(H-P-((v-mn)/rng)*(H-2*P));
+  }).join(" ");
+  const up=vals[vals.length-1]>=vals[vals.length-2];
+  return (
+    <div style={{marginTop:10,borderTop:"1px solid #1a2628",paddingTop:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"#4a6a64",letterSpacing:1,textTransform:"uppercase",marginBottom:6}}>
+        <span>Historico 6 meses</span>
+        <span style={{color:up?"#00d4aa":"#ff6b6b"}}>{up?"▲ Alta":"▼ Queda"}</span>
+      </div>
+      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+        <svg width={W} height={H}>
+          <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round"/>
+          {vals.map(function(v,i){
+            const x=P+(i/(vals.length-1))*(W-2*P), yy=H-P-((v-mn)/rng)*(H-2*P);
+            return React.createElement("circle",{key:i,cx:x,cy:yy,r:i===vals.length-1?3:2,fill:i===vals.length-1?"#e8f4f0":color});
+          })}
+        </svg>
+        <div style={{fontSize:9,lineHeight:1.8}}>
+          {data.map(function(v,i){
+            return React.createElement("div",{key:i,style:{color:i===data.length-1?"#e8f4f0":"#4a6a64",fontWeight:i===data.length-1?700:400}},v);
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Teto({preco, teto, label}) {
+  const p=parseR(preco), t=parseR(teto);
+  if (!t) return null;
+  const ok=p<t, pct=((t-p)/t*100).toFixed(0);
+  return (
+    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,padding:"5px 0",borderBottom:"1px solid #1a2628"}}>
+      <span style={{color:"#4a6a64"}}>{label}</span>
+      <span style={{color:ok?"#00d4aa":"#ff6b6b",fontWeight:500}}>{teto} {ok?"("+pct+"% mg)":"(acima)"}</span>
+    </div>
+  );
+}
+
+function Simulador({item, isFii}) {
+  const [val,setVal]=useState("10000");
+  const preco=parseR(item.preco);
+  const freq=item.freq_dividendo;
+  const div=parseR(item.ultimo_dividendo);
+  const dm=isFii?div:div/(freq==="Mensal"?1:freq==="Trimestral"?3:freq==="Semestral"?6:12);
+  const cotas=preco>0?Math.floor((parseFloat(val)||0)/preco):0;
+  return (
+    <div style={{marginTop:10,background:"rgba(245,166,35,.06)",border:"1px solid rgba(245,166,35,.2)",borderRadius:4,padding:"10px 12px"}}>
+      <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#4a6a64",marginBottom:8}}>Simulador de renda</div>
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+        <span style={{fontSize:11,color:"#4a6a64"}}>R$</span>
+        <input value={val} onChange={function(e){setVal(e.target.value.replace(/\D/g,""));}}
+          style={{flex:1,background:"#0f1a1c",border:"1px solid #1a2628",borderRadius:3,padding:"4px 8px",color:"#e8f4f0",fontSize:12,fontFamily:"monospace",outline:"none"}}
+          placeholder="10000"/>
+      </div>
+      <div style={{fontSize:10,color:"#4a6a64",lineHeight:2.2}}>
+        <div>Cotas: <b style={{color:"#e8f4f0"}}>{cotas}</b></div>
+        <div>Renda/mes: <b style={{color:"#00d4aa",fontSize:14}}>R$ {(cotas*dm).toFixed(2).replace(".",",")}</b></div>
+        <div>Renda/ano: <b style={{color:"#f5a623"}}>R$ {(cotas*dm*12).toFixed(2).replace(".",",")}</b></div>
+      </div>
+    </div>
+  );
+}
+
+function Card({item, isFii, idx, onToggle, inCart}) {
+  const [exp,setExp]=useState(false);
+  const clr=isFii?"#00d4aa":"#f5a623";
+  return (
+    <div style={{background:"#0f1a1c",border:"1px solid "+(inCart?"rgba(0,212,170,.5)":"#1a2628"),borderRadius:6,padding:"20px 18px",position:"relative",animation:"fadein .4s ease "+(idx*.08)+"s both",boxShadow:inCart?"0 0 20px rgba(0,212,170,.1)":"none"}}>
+      <div style={{position:"absolute",top:0,left:0,right:0,height:2,borderRadius:"6px 6px 0 0",background:clr}}/>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:2}}>
+        <span style={{fontSize:20,fontWeight:900,letterSpacing:-1}}>{item.ticker}</span>
+        <button onClick={function(){onToggle(item.ticker);}}
+          style={{background:inCart?"#00d4aa":"transparent",border:"1px solid "+(inCart?"#00d4aa":"#1a2628"),borderRadius:3,padding:"3px 8px",cursor:"pointer",fontSize:10,color:inCart?"#070d0e":"#4a6a64",fontWeight:700,fontFamily:"monospace"}}>
+          {inCart?"OK CART":"+CART"}
+        </button>
+      </div>
+      <div style={{fontSize:10,color:"#4a6a64",marginBottom:14,lineHeight:1.4}}>
+        {item.nome}
+        {isFii&&item.segmento ? React.createElement("span",null,React.createElement("br"),React.createElement("span",{style:{opacity:.7}},item.segmento)) : null}
+      </div>
+      <Metric label="PRECO"  value={item.preco}/>
+      <Metric label="P/VP"   value={item.pvp}    color={cvp(item.pvp,isFii)}/>
+      {!isFii && React.createElement(React.Fragment,null,
+        React.createElement(Metric,{label:"P/L",   value:item.pl,     color:cpl(item.pl)}),
+        React.createElement(Metric,{label:"ROE",   value:item.roe,    color:"#00d4aa"}),
+        React.createElement(Metric,{label:"PAYOUT",value:item.payout, color:cpay(item.payout)})
+      )}
+      <Metric label={isFii?"DY 12M":"DY ANUAL"} value={item.dy} color="#00d4aa"/>
+      {isFii && React.createElement(Metric,{label:"VACANCIA",value:item.vacancia,color:cvac(item.vacancia)})}
+      <div style={{marginTop:12,background:"rgba(0,212,170,.07)",border:"1px solid rgba(0,212,170,.2)",borderRadius:4,padding:"9px 12px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#4a6a64",marginBottom:3}}>
+            {"Ultimo Dividendo - "+(isFii?"Mensal":item.freq_dividendo)}
+          </div>
+          <div style={{fontSize:18,fontWeight:900,color:"#00d4aa"}}>{item.ultimo_dividendo||"—"}</div>
+        </div>
+        <span style={{fontSize:22}}>💰</span>
+      </div>
+      {(item.preco_teto_bazin||item.preco_teto_graham) &&
+        React.createElement("div",{style:{marginTop:10}},
+          item.preco_teto_bazin  && React.createElement(Teto,{preco:item.preco,teto:item.preco_teto_bazin,  label:"Teto Bazin"}),
+          item.preco_teto_graham && React.createElement(Teto,{preco:item.preco,teto:item.preco_teto_graham, label:"Teto Graham"})
+        )
+      }
+      <div style={{height:3,background:"#1a2628",borderRadius:2,overflow:"hidden",marginTop:14}}>
+        <div style={{height:"100%",width:(item.score||0)+"%",background:clr,transition:"width 1s ease .2s"}}/>
+      </div>
+      <div style={{display:"flex",justifyContent:"space-between",marginTop:5,fontSize:10,color:"#4a6a64",letterSpacing:1}}>
+        <span>SCORE</span><span>{item.score}/100</span>
+      </div>
+      <div style={{marginTop:10,fontSize:10,lineHeight:1.6,color:"#4a6a64",fontStyle:"italic",borderTop:"1px solid #1a2628",paddingTop:10}}>
+        {item.motivo}
+      </div>
+      <button onClick={function(){setExp(!exp);}}
+        style={{marginTop:12,width:"100%",background:"transparent",border:"1px solid #1a2628",borderRadius:3,padding:6,cursor:"pointer",fontSize:10,color:"#4a6a64",letterSpacing:1,fontFamily:"monospace"}}>
+        {exp?"▲ MENOS":"▼ HISTORICO + SIMULADOR"}
+      </button>
+      {exp && React.createElement(React.Fragment,null,
+        React.createElement(Sparkline,{data:item.historico_dividendos,color:clr}),
+        React.createElement(Simulador,{item:item,isFii:isFii})
+      )}
+    </div>
+  );
+}
+
+function Carteira({carteira, data}) {
+  const [aportes,setAportes]=useState({});
+  if (!carteira.length) return null;
+  const todos=[].concat(data.acoes||[]).concat(data.fiis||[]);
+  const sel=todos.filter(function(a){return carteira.indexOf(a.ticker)>=0;});
+  const ehFii=function(t){return (data.fiis||[]).some(function(f){return f.ticker===t;});};
+  const calcMes=function(item){
+    const preco=parseR(item.preco), ap=parseFloat(aportes[item.ticker]||"10000")||0;
+    const cotas=preco>0?Math.floor(ap/preco):0;
+    const div=parseR(item.ultimo_dividendo), freq=item.freq_dividendo;
+    const dm=ehFii(item.ticker)?div:div/(freq==="Mensal"?1:freq==="Trimestral"?3:freq==="Semestral"?6:12);
+    return cotas*dm;
+  };
+  const totalAp=sel.reduce(function(a,i){return a+(parseFloat(aportes[i.ticker]||"10000")||0);},0);
+  const totalMes=sel.reduce(function(a,i){return a+calcMes(i);},0);
+  const dy=totalAp>0?((totalMes*12/totalAp)*100).toFixed(2):"0";
+  return (
+    <div style={{marginBottom:28,background:"#0f1a1c",border:"1px solid rgba(0,212,170,.35)",borderRadius:6,padding:"20px 18px",animation:"fadein .3s ease both"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <span style={{fontSize:12,fontWeight:700,letterSpacing:3,textTransform:"uppercase",color:"#00d4aa"}}>Minha Carteira</span>
+        <span style={{fontSize:10,color:"#4a6a64"}}>{sel.length} ativo{sel.length!==1?"s":""}</span>
+      </div>
+      {sel.map(function(item){
+        const ap=aportes[item.ticker]||"10000";
+        return (
+          <div key={item.ticker} style={{display:"flex",alignItems:"center",gap:12,marginBottom:10,padding:"10px 12px",background:"#070d0e",borderRadius:4,border:"1px solid #1a2628"}}>
+            <span style={{fontWeight:900,fontSize:14,color:ehFii(item.ticker)?"#00d4aa":"#f5a623",minWidth:64}}>{item.ticker}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:9,color:"#4a6a64",marginBottom:4}}>Aporte</div>
+              <div style={{display:"flex",alignItems:"center",gap:4}}>
+                <span style={{fontSize:11,color:"#4a6a64"}}>R$</span>
+                <input value={ap} onChange={function(e){setAportes(function(p){const n=Object.assign({},p);n[item.ticker]=e.target.value.replace(/\D/g,"");return n;});}}
+                  style={{width:90,background:"#0f1a1c",border:"1px solid #1a2628",borderRadius:3,padding:"3px 6px",color:"#e8f4f0",fontSize:11,fontFamily:"monospace",outline:"none"}}/>
+              </div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:9,color:"#4a6a64",marginBottom:2}}>RENDA/MES</div>
+              <div style={{fontSize:15,fontWeight:900,color:"#00d4aa"}}>R$ {calcMes(item).toFixed(2).replace(".",",")}</div>
+            </div>
+          </div>
+        );
+      })}
+      <div style={{marginTop:14,padding:14,background:"rgba(0,212,170,.05)",border:"1px solid rgba(0,212,170,.2)",borderRadius:4}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+          <span style={{fontSize:11,color:"#4a6a64"}}>Total investido</span>
+          <span style={{fontSize:12,color:"#e8f4f0",fontWeight:700}}>R$ {totalAp.toLocaleString("pt-BR")}</span>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+          <span style={{fontSize:11,color:"#4a6a64"}}>DY medio carteira</span>
+          <span style={{fontSize:12,color:"#f5a623",fontWeight:700}}>{dy}% a.a.</span>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between"}}>
+          <span style={{fontSize:13,color:"#4a6a64",fontWeight:700}}>Renda passiva/mes</span>
+          <span style={{fontSize:22,color:"#00d4aa",fontWeight:900}}>R$ {totalMes.toFixed(2).replace(".",",")}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Timer({on}) {
+  const [s,setS]=useState(0);
+  const r=useRef(null);
+  useEffect(function(){
+    if(on){setS(0);r.current=setInterval(function(){setS(function(x){return x+1;});},1000);}
+    else{clearInterval(r.current);}
+    return function(){clearInterval(r.current);};
+  },[on]);
+  if(!on)return null;
+  return React.createElement("span",{style:{color:"#4a6a64",marginLeft:6}},s+"s");
+}
+
+function BotaoPDF({data}) {
+  const [salvando,setSalvando]=useState(false);
+  function handleClick(){
+    setSalvando(true);
+    setTimeout(function(){
+      try{ gerarPDF(data); }catch(e){ console.error("PDF erro:",e); alert("Erro ao gerar PDF: "+e.message); }
+      setSalvando(false);
+    },100);
+  }
+  return (
+    <button onClick={handleClick} disabled={salvando}
+      style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,background:"transparent",border:"1px solid rgba(0,212,170,.4)",borderRadius:4,padding:"11px 20px",cursor:salvando?"default":"pointer",color:"#00d4aa",fontSize:12,fontWeight:700,letterSpacing:2,textTransform:"uppercase",fontFamily:"monospace",marginBottom:24,width:"100%",opacity:salvando?.6:1}}>
+      {salvando ? "Gerando PDF..." : "📄  Salvar como PDF"}
+    </button>
+  );
+}
+
+function App() {
+  const [loading,setLoading]=useState(false);
+  const [data,setData]=useState(null);
+  const [error,setError]=useState("");
+  const [hov,setHov]=useState(false);
+  const [carteira,setCarteira]=useState([]);
+  const [apiKey,setApiKey]=useState("");
+  const [keyOk,setKeyOk]=useState(false);
+
+  function toggle(t){ setCarteira(function(c){return c.indexOf(t)>=0?c.filter(function(x){return x!==t;}):[].concat(c,[t]);}); }
+
+  async function buscar(){
+    if(loading)return;
+    if(!apiKey.trim()){ setError("Informe sua chave de API Anthropic antes de pesquisar."); return; }
+    setLoading(true); setError(""); setData(null); setCarteira([]);
+    try{ setData(await buscarDados(apiKey)); setKeyOk(true); }
+    catch(e){ setError(e.message||"Erro. Tente novamente."); }
+    finally{ setLoading(false); }
+  }
+
+  return (
+    <div style={{minHeight:"100vh",padding:"32px 16px 60px",display:"flex",flexDirection:"column",alignItems:"center"}}>
+      <div style={{position:"fixed",inset:0,backgroundImage:"linear-gradient(rgba(0,212,170,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,170,.03) 1px,transparent 1px)",backgroundSize:"44px 44px",pointerEvents:"none"}}/>
+      <div style={{position:"fixed",top:-150,left:"50%",transform:"translateX(-50%)",width:500,height:500,background:"radial-gradient(circle,rgba(0,212,170,.07) 0%,transparent 70%)",pointerEvents:"none"}}/>
+
+      <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:920}}>
+
+        {/* Header */}
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <div style={{display:"inline-block",fontSize:10,letterSpacing:4,textTransform:"uppercase",color:"#00d4aa",border:"1px solid rgba(0,212,170,.25)",padding:"5px 14px",borderRadius:2,marginBottom:14}}>
+            B3 Radar - Perfil Conservador
+          </div>
+          <div style={{fontSize:"clamp(24px,5vw,44px)",fontWeight:900,lineHeight:1.05,letterSpacing:-2,marginBottom:8}}>
+            Oportunidades<br/><span style={{color:"#00d4aa"}}>de Mercado</span>
+          </div>
+          <div style={{color:"#4a6a64",fontSize:12,marginBottom:12}}>
+            Dividendos seguros · Preco teto · Simulador · Carteira · PDF
+          </div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:7,justifyContent:"center"}}>
+            {["P/VP < 1.3","DY > 8%","Teto Bazin/Graham","Historico 6M","Simulador","PDF"].map(function(b){
+              return React.createElement("span",{key:b,style:{background:"rgba(0,212,170,.05)",border:"1px solid rgba(0,212,170,.15)",borderRadius:2,padding:"3px 10px",fontSize:10,letterSpacing:1,color:"#00d4aa"}},b);
+            })}
+          </div>
+        </div>
+
+        {/* API Key input */}
+        <div style={{marginBottom:24,maxWidth:460,marginLeft:"auto",marginRight:"auto"}}>
+          <div style={{fontSize:9,letterSpacing:3,textTransform:"uppercase",color:"#4a6a64",marginBottom:7,textAlign:"center"}}>
+            Chave de API Anthropic
+            {keyOk && React.createElement("span",{style:{color:"#00d4aa",marginLeft:8}}, "✓ Ativa")}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:"#0f1a1c",border:"1px solid "+(apiKey?"rgba(0,212,170,.35)":"#1a2628"),borderRadius:4,padding:"8px 12px",transition:"border-color .2s"}}>
+            <span style={{fontSize:12,color:"#4a6a64",flexShrink:0}}>🔑</span>
+            <input
+              type="password"
+              value={apiKey}
+              onChange={function(e){setApiKey(e.target.value); setKeyOk(false);}}
+              placeholder="sk-ant-api03-..."
+              style={{flex:1,background:"transparent",border:"none",outline:"none",color:"#e8f4f0",fontSize:12,fontFamily:"monospace",letterSpacing:1}}
+            />
+            {apiKey && React.createElement("button",{
+              onClick:function(){setApiKey("");setKeyOk(false);setError("");},
+              style:{background:"transparent",border:"none",cursor:"pointer",color:"#4a6a64",fontSize:14,padding:0}
+            },"✕")}
+          </div>
+          <div style={{fontSize:9,color:"#2a3a3c",marginTop:5,textAlign:"center",letterSpacing:.5}}>
+            Sua chave fica apenas na memória e nunca é enviada a outros servidores.
+          </div>
+        </div>
+
+        {/* Botao pesquisar */}
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:28}}>
+          <div
+            onClick={!loading?buscar:undefined}
+            onMouseEnter={function(){setHov(true);}}
+            onMouseLeave={function(){setHov(false);}}
+            style={{width:140,height:140,borderRadius:"50%",cursor:loading?"default":"pointer",position:"relative",userSelect:"none",background:(hov&&!loading)?"#00d4aa":"transparent",border:"2px solid #00d4aa",display:"flex",alignItems:"center",justifyContent:"center",transition:"background .3s",boxShadow:(hov||loading)?"0 0 40px rgba(0,212,170,.3)":"none"}}>
+            {loading && React.createElement("div",{style:{position:"absolute",inset:-2,borderRadius:"50%",background:"conic-gradient(#00d4aa 0deg,transparent 200deg,#00d4aa 360deg)",animation:"rot 1s linear infinite",zIndex:0}})}
+            {loading && React.createElement("div",{style:{position:"absolute",inset:4,borderRadius:"50%",background:"#070d0e",zIndex:1}})}
+            <span style={{position:"relative",zIndex:2,fontSize:12,fontWeight:900,letterSpacing:2,textTransform:"uppercase",color:(hov&&!loading)?"#070d0e":"#00d4aa"}}>
+              {loading?"···":"Pesquisar"}
+            </span>
+          </div>
+          {loading && React.createElement("div",{style:{marginTop:12,display:"flex",alignItems:"center",gap:6,fontSize:11,color:"#4a6a64",textTransform:"uppercase",letterSpacing:1}},
+            React.createElement("div",{style:{width:6,height:6,borderRadius:"50%",background:"#00d4aa",animation:"pulse 1.4s ease-in-out infinite"}}),
+            "Analisando mercado",
+            React.createElement(Timer,{on:loading})
+          )}
+        </div>
+
+        {/* Erro */}
+        {error && React.createElement("div",{style:{textAlign:"center",color:"#ff6b6b",fontSize:12,padding:"18px",border:"1px solid rgba(255,107,107,.2)",borderRadius:4,marginBottom:20,lineHeight:1.8}},
+          "⚠ "+error,
+          React.createElement("br"),
+          React.createElement("span",{style:{color:"#4a6a64",fontSize:11}},"Aguarde e tente novamente.")
+        )}
+
+        {/* Botao PDF */}
+        {data && React.createElement(BotaoPDF,{data:data})}
+
+        {/* Carteira */}
+        {data && carteira.length>0 && React.createElement(Carteira,{carteira:carteira,data:data})}
+
+        {/* Resultados */}
+        {data && React.createElement(React.Fragment,null,
+          React.createElement("div",{style:{fontSize:10,fontWeight:700,letterSpacing:4,textTransform:"uppercase",color:"#4a6a64",borderLeft:"2px solid #f5a623",paddingLeft:10,marginBottom:12}},"Acoes - Top 3 Conservadoras"),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(255px,1fr))",gap:12,marginBottom:28}},
+            (data.acoes||[]).slice(0,3).map(function(a,i){
+              return React.createElement(Card,{key:a.ticker,item:a,isFii:false,idx:i,onToggle:toggle,inCart:carteira.indexOf(a.ticker)>=0});
+            })
+          ),
+          React.createElement("div",{style:{fontSize:10,fontWeight:700,letterSpacing:4,textTransform:"uppercase",color:"#4a6a64",borderLeft:"2px solid #00d4aa",paddingLeft:10,marginBottom:12}},"FIIs - Top 3 Conservadores"),
+          React.createElement("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(255px,1fr))",gap:12,marginBottom:24}},
+            (data.fiis||[]).slice(0,3).map(function(f,i){
+              return React.createElement(Card,{key:f.ticker,item:f,isFii:true,idx:i+3,onToggle:toggle,inCart:carteira.indexOf(f.ticker)>=0});
+            })
+          ),
+          React.createElement("div",{style:{padding:13,border:"1px solid #1a2628",borderRadius:4,fontSize:10,color:"#4a6a64",lineHeight:1.7,textAlign:"center"}},
+            "⚠ Analise por IA. Nao e recomendacao de investimento.",
+            React.createElement("br"),
+            React.createElement("span",{style:{opacity:.5}},new Date().toLocaleString("pt-BR"))
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App,null));
+</script>
+</body>
+</html>

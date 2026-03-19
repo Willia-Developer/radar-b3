@@ -1,0 +1,9 @@
+{
+  "name": "b3-radar-hostinger",
+  "private": true,
+  "scripts": {
+    "install:frontend": "cmd /c npm install --prefix frontend",
+    "build": "cmd /c npm run build --prefix frontend"
+  }
+}
+

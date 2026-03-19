@@ -1,0 +1,6 @@
+node_modules/
+dist/
+
+# Chave da API — NUNCA commitar este arquivo
+public/api/config.php
+public/api/radar-debug.log
