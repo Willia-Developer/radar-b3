@@ -1,7 +1,10 @@
 import { useState } from "react";
 
+// Endpoint do backend Node.js (proxy pelo Vite em dev, mesmo servidor em prod)
+const API_URL = "/api/radar";
+
 const steps = [
-  "Conectando à API...",
+  "Conectando ao servidor...",
   "Buscando dados em tempo real...",
   "Aplicando filtro anti-dividend trap...",
   "Normalizando por setor e segmento...",
@@ -57,70 +60,25 @@ function extrairJSON(txt) {
   return null;
 }
 
-const PROMPT = `Você é analista de renda variável da B3, perfil CONSERVADOR. Data: ${new Date().toLocaleDateString("pt-BR")}.
-Selecione 4 AÇÕES e 4 FIIs da B3 com DY mínimo de 10%, anti-dividend trap, perfil conservador.
-Critérios ações: DY>=10%, P/VP<1.5, P/L<15, ROE>=12%, payout<90%, dívida/EBITDA<3.
-Critérios FIIs: DY>=10%, P/VP<1.2, vacância<12%, contratos atípicos preferíveis.
-Garanta ao menos 3 setores diferentes nas ações e 3 segmentos diferentes nos FIIs.
-Responda SOMENTE com JSON puro, sem markdown, sem texto antes ou depois:
-{"acoes":[{"ticker":"TAEE11","nome":"Taesa S.A.","setor":"Utilidades Básicas","preco":"R$ 35,00","pl":"7.5","roe":"25%","dy":"11.5%","margem_liquida":"35%","margem_ebitda":"70%","divida_ebitda":"1.8","payout":"85%","risco_dividend_trap":"Baixo","historico_dividendos":"Crescente 3 anos","tendencia_receita":"Estável","tendencia_lucro":"Estável","tendencia_dividendos":"Crescente","comparacao_setorial":"DY acima da média","score":88,"motivo":"Receita regulada com dividendos crescentes."},{"ticker":"BBAS3","nome":"Banco do Brasil","setor":"Financeiro","preco":"R$ 25,00","pl":"5.0","roe":"22%","dy":"10.5%","margem_liquida":"28%","margem_ebitda":"N/A","divida_ebitda":"N/A","payout":"45%","risco_dividend_trap":"Baixo","historico_dividendos":"Consistente","tendencia_receita":"Crescente","tendencia_lucro":"Crescente","tendencia_dividendos":"Crescente","comparacao_setorial":"Melhor DY entre bancos","score":85,"motivo":"Banco estatal sólido com alto ROE."},{"ticker":"CPLE6","nome":"Copel","setor":"Energia Elétrica","preco":"R$ 10,00","pl":"8.0","roe":"15%","dy":"10.0%","margem_liquida":"20%","margem_ebitda":"40%","divida_ebitda":"2.5","payout":"80%","risco_dividend_trap":"Medio","historico_dividendos":"Estável","tendencia_receita":"Estável","tendencia_lucro":"Estável","tendencia_dividendos":"Estável","comparacao_setorial":"Em linha com setor","score":80,"motivo":"Distribuidora de energia com DY consistente."},{"ticker":"VALE3","nome":"Vale S.A.","setor":"Mineração","preco":"R$ 62,00","pl":"6.0","roe":"18%","dy":"10.5%","margem_liquida":"28%","margem_ebitda":"45%","divida_ebitda":"1.2","payout":"60%","risco_dividend_trap":"Baixo","historico_dividendos":"Consistente","tendencia_receita":"Estável","tendencia_lucro":"Estável","tendencia_dividendos":"Estável","comparacao_setorial":"DY atrativo no setor","score":82,"motivo":"Mineradora líder com geração de caixa robusta."}],"fiis":[{"ticker":"HGLG11","nome":"Pátria Logística","segmento":"Logístico","preco":"R$ 155,00","pvp":"0.95","dy":"10.5%","vacancia":"3%","tipo_contrato":"Atípico","risco_dividend_trap":"Baixo","historico_rendimentos":"Estável e crescente","qualidade_ativos":"Galpões classe A","tendencia_dividendos":"Estável","comparacao_segmento":"DY acima do segmento","score":91,"motivo":"Portfólio premium com contratos atípicos."},{"ticker":"XPML11","nome":"XP Malls","segmento":"Shoppings","preco":"R$ 90,00","pvp":"0.88","dy":"10.2%","vacancia":"5%","tipo_contrato":"Típico","risco_dividend_trap":"Baixo","historico_rendimentos":"Crescente","qualidade_ativos":"Shoppings premium","tendencia_dividendos":"Crescente","comparacao_segmento":"Melhor DY do segmento","score":88,"motivo":"Shoppings de alto padrão com desconto."},{"ticker":"BTLG11","nome":"BTG Logística","segmento":"Logístico","preco":"R$ 100,00","pvp":"0.92","dy":"10.0%","vacancia":"2%","tipo_contrato":"Atípico","risco_dividend_trap":"Baixo","historico_rendimentos":"Estável","qualidade_ativos":"Portfólio diversificado","tendencia_dividendos":"Estável","comparacao_segmento":"Em linha com segmento","score":85,"motivo":"Baixa vacância e gestão sólida."},{"ticker":"KNRI11","nome":"Kinea Renda Imobiliária","segmento":"Híbrido","preco":"R$ 130,00","pvp":"0.90","dy":"10.3%","vacancia":"4%","tipo_contrato":"Misto","risco_dividend_trap":"Baixo","historico_rendimentos":"Crescente","qualidade_ativos":"Lajes e galpões prime","tendencia_dividendos":"Crescente","comparacao_segmento":"DY acima do segmento","score":87,"motivo":"FII híbrido de alta qualidade com gestão ativa."}]}
-Substitua TODOS os valores acima por dados reais e atuais da B3.`;
-
-// ── Anthropic (pago) ────────────────────────────────────────────────────────
-async function buscarAnthropic(apiKey) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey.trim(),
-      "anthropic-version": "2023-06-01",
-      "anthropic-dangerous-direct-browser-access": "true"
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-5",
-      max_tokens: 4000,
-      messages: [{ role: "user", content: PROMPT }]
-    })
-  });
-
-  if (!res.ok) {
-    if (res.status === 401) throw new Error("Chave Anthropic inválida. Verifique em console.anthropic.com → API Keys.");
-    if (res.status === 429) throw new Error("Limite de requisições Anthropic atingido. Aguarde.");
-    throw new Error(`Erro Anthropic HTTP ${res.status}.`);
-  }
-
-  const json = await res.json();
-  const txt = (json.content || []).filter(b => b.type === "text").map(b => b.text).join("");
-  const data = extrairJSON(txt);
-  if (!data) throw new Error("Resposta Anthropic inválida. Tente novamente.");
-  return data;
-}
-
-// ── Gemini (gratuito) ───────────────────────────────────────────────────────
-async function buscarGemini(apiKey) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey.trim())}`;
-
-  const res = await fetch(url, {
+// ── Backend (Node.js + Gemini no servidor) ───────────────────────────────────
+async function buscarBackend() {
+  const res = await fetch(API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: PROMPT }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 8192 }
-    })
+    body: JSON.stringify({ profile: "conservador" })
   });
 
+  const json = await res.json();
+
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    if (res.status === 400 || res.status === 403) throw new Error("Chave Gemini inválida. Verifique em aistudio.google.com → API Keys.");
-    if (res.status === 429) throw new Error("Limite de requisições Gemini atingido. Aguarde.");
-    throw new Error(err?.error?.message || `Erro Gemini HTTP ${res.status}.`);
+    throw new Error(json?.error || `Erro HTTP ${res.status}. Verifique se o backend está rodando.`);
   }
 
-  const json = await res.json();
-  const txt = (json.candidates?.[0]?.content?.parts || []).map(p => p.text || "").join("");
-  const data = extrairJSON(txt);
-  if (!data) throw new Error("Resposta Gemini inválida. Tente novamente.");
-  return data;
+  if (!json.acoes || !json.fiis) {
+    throw new Error("Resposta inválida do servidor. Tente novamente.");
+  }
+
+  return json;
 }
 
 // ── App ─────────────────────────────────────────────────────────────────────
@@ -130,20 +88,11 @@ function App() {
   const [error, setError]         = useState("");
   const [data, setData]           = useState(null);
   const [updatedAt, setUpdatedAt] = useState("");
-  const [provider, setProvider]   = useState("gemini");   // "gemini" | "anthropic"
-  const [apiKey, setApiKey]       = useState("");
-  const [keyOk, setKeyOk]         = useState(false);
-
-  const isGemini = provider === "gemini";
 
   function exportarPdf() { if (data) window.print(); }
 
   async function buscar() {
     if (busy) return;
-    if (!apiKey.trim()) {
-      setError(`Informe sua chave de API ${isGemini ? "Gemini" : "Anthropic"} antes de buscar.`);
-      return;
-    }
 
     setBusy(true);
     setError("");
@@ -157,11 +106,10 @@ function App() {
     }, 1500);
 
     try {
-      const result = isGemini ? await buscarGemini(apiKey) : await buscarAnthropic(apiKey);
+      const result = await buscarBackend();
       setData(result);
       setUpdatedAt(new Date().toLocaleString("pt-BR"));
       setStatus("Dados atualizados com sucesso.");
-      setKeyOk(true);
     } catch (e) {
       setError(e.message || "Erro desconhecido. Tente novamente.");
       setStatus("");
@@ -180,7 +128,7 @@ function App() {
         <header className="hero">
           <h1>Radar em tempo real<span> para a B3</span></h1>
           <p className="subtitle">
-            Filtro reforcado com DY minimo de 10%, anti-dividend trap, leitura de historico e comparacao setorial.
+            Filtro reforcado com DY minimo de 10%, anti-dividend trap, leitura de historico e comparacao setorial. Analise via Gemini no servidor.
           </p>
           <div className="badges">
             <span className="badge">DY minimo 10%</span>
@@ -191,58 +139,6 @@ function App() {
             <span className="badge">Score por classe</span>
           </div>
         </header>
-
-        {/* ── Seletor de provedor + chave ── */}
-        <section className="api-key-section">
-
-          {/* Toggle Gemini / Anthropic */}
-          <div className="provider-toggle">
-            <button
-              className={`provider-btn ${isGemini ? "active" : ""}`}
-              onClick={() => { setProvider("gemini"); setApiKey(""); setKeyOk(false); setError(""); }}
-            >
-              <span className="provider-badge free">GRÁTIS</span>
-              Google Gemini
-            </button>
-            <button
-              className={`provider-btn ${!isGemini ? "active" : ""}`}
-              onClick={() => { setProvider("anthropic"); setApiKey(""); setKeyOk(false); setError(""); }}
-            >
-              <span className="provider-badge paid">PAGO</span>
-              Anthropic Claude
-            </button>
-          </div>
-
-          {/* Info do provedor */}
-          <p className="provider-info">
-            {isGemini
-              ? <>Chave gratuita em <strong>aistudio.google.com</strong> → Get API Key</>
-              : <>Chave paga em <strong>console.anthropic.com</strong> → API Keys</>
-            }
-          </p>
-
-          {/* Input da chave */}
-          <label className="api-key-label">
-            Chave de API {isGemini ? "Gemini" : "Anthropic"}
-            {keyOk && <span className="api-key-ok"> ✓ Ativa</span>}
-          </label>
-          <div className={`api-key-wrap ${apiKey ? "filled" : ""}`}>
-            <span className="api-key-icon">🔑</span>
-            <input
-              type="password"
-              className="api-key-input"
-              placeholder={isGemini ? "AIzaSy..." : "sk-ant-api03-..."}
-              value={apiKey}
-              onChange={e => { setApiKey(e.target.value); setKeyOk(false); }}
-            />
-            {apiKey && (
-              <button className="api-key-clear" onClick={() => { setApiKey(""); setKeyOk(false); setError(""); }}>✕</button>
-            )}
-          </div>
-          <p className="api-key-hint">
-            Fica só na memória do browser, nunca enviada a outros servidores.
-          </p>
-        </section>
 
         {/* ── Botão ── */}
         <section className="control">
