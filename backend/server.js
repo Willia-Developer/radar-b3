@@ -41,7 +41,9 @@ OBJETIVO: Selecionar as 4 MELHORES acoes da B3 para renda passiva conservadora.
 Pense como um comite seletivo. Entre varios ativos aprovados, escolha apenas os que voce defenderia com mais conviccao.
 
 CRITERIOS MINIMOS OBRIGATORIOS:
-- Dividend Yield >= 10%
+- Dividend Yield >= 10% (obrigatorio)
+- Prefira ativos com DY acima de 12%, desde que qualidade e sustentabilidade sejam boas
+- NAO priorize DY alto se houver sinais de fragilidade ou risco de dividend trap
 - P/L < 15
 - ROE >= 12%
 - Payout < 90% (salvo excecoes muito bem justificadas)
@@ -89,7 +91,9 @@ OBJETIVO: Selecionar os 4 MELHORES FIIs da B3 para renda passiva conservadora.
 Pense como um comite seletivo. Entre varios ativos aprovados, escolha apenas os que voce defenderia com mais conviccao.
 
 CRITERIOS MINIMOS:
-- Dividend Yield >= 10%
+- Dividend Yield >= 10% (obrigatorio)
+- Prefira FIIs com DY acima de 12%, desde que qualidade e sustentabilidade sejam boas
+- NAO priorize DY alto se houver sinais de fragilidade ou risco de dividend trap
 - P/VP < 1.2 (salvo excecoes bem justificadas)
 - Vacancia < 12% quando aplicavel (FIIs de papel: vacancia = "Nao aplicavel")
 - Preferir contratos defensivos e portfolios de qualidade
