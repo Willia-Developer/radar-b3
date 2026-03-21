@@ -731,3 +731,314 @@ textarea {
 .provider-info strong {
   color: var(--text);
 }
+
+/* ══════════════════════════════════════════════════════════
+   NAVEGAÇÃO POR ABAS
+   ══════════════════════════════════════════════════════════ */
+
+.nav-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+
+.nav-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: "Syne", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.nav-tab:hover {
+  color: var(--text);
+}
+
+.nav-tab-active {
+  color: var(--green);
+  border-bottom-color: var(--green);
+}
+
+/* ══════════════════════════════════════════════════════════
+   TELA DE HISTÓRICO
+   ══════════════════════════════════════════════════════════ */
+
+.hist-loading {
+  text-align: center;
+  color: var(--muted);
+  padding: 48px 0;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.hist-vazio {
+  text-align: center;
+  color: var(--muted);
+  padding: 48px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.hist-resumo {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.hist-table-wrap {
+  overflow-x: auto;
+}
+
+.hist-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.hist-table th {
+  text-align: left;
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.hist-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(36, 49, 54, 0.5);
+  vertical-align: middle;
+}
+
+.hist-table tbody tr:hover {
+  background: rgba(0, 212, 170, 0.03);
+}
+
+.hist-date {
+  font-family: "DM Mono", monospace;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.hist-model {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.hist-count {
+  text-align: center;
+  font-weight: 600;
+}
+
+.hist-score {
+  font-weight: 700;
+}
+
+.hist-origin-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.hist-origin-manual {
+  background: rgba(0, 212, 170, 0.08);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  color: var(--green);
+}
+
+.hist-origin-cron {
+  background: rgba(245, 166, 35, 0.08);
+  border: 1px solid rgba(245, 166, 35, 0.2);
+  color: var(--amber);
+}
+
+.hist-btn-ver {
+  background: rgba(0, 212, 170, 0.08);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  color: var(--green);
+  padding: 5px 14px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.hist-btn-ver:hover {
+  background: rgba(0, 212, 170, 0.18);
+}
+
+.hist-btn-ver:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* Detalhe de rodada */
+.hist-voltar {
+  margin-bottom: 20px;
+}
+
+.hist-detalhe-header {
+  margin-bottom: 24px;
+}
+
+.hist-detalhe-header h2 {
+  font-family: "Syne", sans-serif;
+  font-size: 20px;
+  margin: 0 0 8px;
+}
+
+.hist-meta {
+  display: flex;
+  gap: 8px;
+}
+
+.hist-meta-tag {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+/* ══════════════════════════════════════════════════════════
+   TELA DE ESTATÍSTICAS
+   ══════════════════════════════════════════════════════════ */
+
+.stats-page {
+  padding-bottom: 32px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stats-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 24px;
+  text-align: center;
+}
+
+.stats-number {
+  font-family: "Syne", sans-serif;
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--green);
+  line-height: 1;
+}
+
+.stats-number.stats-date {
+  font-size: 14px;
+  font-family: "DM Mono", monospace;
+  font-weight: 400;
+  color: var(--text);
+}
+
+.stats-label {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 10px;
+}
+
+.stats-section {
+  margin-bottom: 28px;
+}
+
+.stats-section h3 {
+  font-family: "Syne", sans-serif;
+  font-size: 16px;
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-ranking {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stats-rank-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.stats-rank-pos {
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 11px;
+  min-width: 24px;
+}
+
+.stats-rank-ticker {
+  font-family: "Syne", sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  min-width: 80px;
+}
+
+.stats-rank-info {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+/* ── Responsivo para novas telas ── */
+@media (max-width: 900px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .nav-tab {
+    padding: 10px 14px;
+    font-size: 11px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hist-table {
+    font-size: 11px;
+  }
+
+  .hist-table th,
+  .hist-table td {
+    padding: 8px 6px;
+  }
+}

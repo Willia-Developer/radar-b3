@@ -2,14 +2,17 @@
  * ═══════════════════════════════════════════════════════
  *  RADAR-B3 — Backend Node.js
  *  API Gemini integrada no servidor (chave nunca exposta)
+ *  Persistência SQLite + Cron diário + Histórico
  * ═══════════════════════════════════════════════════════
  */
 
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import cron from 'node-cron';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { initDB, salvarAnalise, listarRodadas, buscarRodada, historicoTicker, estatisticas } from './db.js';
 
 dotenv.config();
 
@@ -21,6 +24,7 @@ const PORT           = process.env.PORT           || 3001;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL   = process.env.GEMINI_MODEL   || 'gemini-2.5-flash';
 const SEARCH_ENABLED = process.env.SEARCH_ENABLED !== 'false';
+const CRON_SCHEDULE  = process.env.CRON_SCHEDULE  || '0 8 * * 1-5'; // Seg-Sex 8h
 
 app.use(express.json());
 app.use(cors());
@@ -144,8 +148,8 @@ function limparTextoJSON(texto) {
   return String(texto || '')
     .replace(/```json/gi, '```')
     .replace(/```/g, '')
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
+    .replace(/[""]/g, '"')
+    .replace(/['']/g, "'")
     .trim();
 }
 
@@ -254,6 +258,28 @@ ATENCAO FINAL:
   return dados;
 }
 
+/** Executa análise completa e salva no banco */
+async function executarAnalise(source = 'manual') {
+  const [dadosAcoes, dadosFiis] = await Promise.all([
+    buscarGrupo('acoes'),
+    buscarGrupo('fiis')
+  ]);
+
+  if (!dadosAcoes.acoes || !dadosFiis.fiis) {
+    throw new Error('Resposta invalida da IA.');
+  }
+
+  // Salva no SQLite
+  const timestamp = salvarAnalise(dadosAcoes.acoes, dadosFiis.fiis, GEMINI_MODEL, source);
+
+  return {
+    acoes: dadosAcoes.acoes,
+    fiis: dadosFiis.fiis,
+    salvo_em: timestamp,
+    source
+  };
+}
+
 // ── Rotas ────────────────────────────────────────────────────────────────────
 
 // Health check
@@ -264,32 +290,44 @@ app.get('/api/radar', (req, res) => {
   res.json({ ok: true, message: 'Backend online. Use POST para buscar dados.', model: GEMINI_MODEL });
 });
 
-// Busca principal
+// Busca principal (agora salva automaticamente)
 app.post('/api/radar', async (req, res) => {
   if (!GEMINI_API_KEY) {
     return res.status(500).json({ error: 'GEMINI_API_KEY nao configurada. Edite o arquivo .env.' });
   }
 
   try {
-    // Busca acoes e FIIs em paralelo
-    const [dadosAcoes, dadosFiis] = await Promise.all([
-      buscarGrupo('acoes'),
-      buscarGrupo('fiis')
-    ]);
-
-    if (!dadosAcoes.acoes || !dadosFiis.fiis) {
-      return res.status(502).json({ error: 'Resposta invalida da IA. Tente novamente.' });
-    }
-
-    res.json({
-      acoes: dadosAcoes.acoes,
-      fiis:  dadosFiis.fiis
-    });
-
+    const resultado = await executarAnalise('manual');
+    res.json(resultado);
   } catch (e) {
     console.error('[RADAR] Erro:', e.message);
     res.status(502).json({ error: e.message || 'Erro ao consultar a API Gemini.' });
   }
+});
+
+// ── Rotas de Histórico ──────────────────────────────────────────────────────
+
+// Lista rodadas
+app.get('/api/historico', (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+  res.json(listarRodadas(limit));
+});
+
+// Detalhes de uma rodada
+app.get('/api/historico/:timestamp', (req, res) => {
+  const data = buscarRodada(req.params.timestamp);
+  if (!data) return res.status(404).json({ error: 'Rodada nao encontrada.' });
+  res.json(data);
+});
+
+// Histórico de um ticker
+app.get('/api/ticker/:ticker', (req, res) => {
+  res.json(historicoTicker(req.params.ticker));
+});
+
+// Estatísticas gerais
+app.get('/api/stats', (req, res) => {
+  res.json(estatisticas());
 });
 
 // SPA fallback (React Router)
@@ -297,10 +335,41 @@ app.get('*', (req, res) => {
   res.sendFile(join(__dirname, '../frontend/dist/index.html'));
 });
 
+// ── Cron Job — Análise diária automática ────────────────────────────────────
+function iniciarCron() {
+  if (!cron.validate(CRON_SCHEDULE)) {
+    console.warn(`⚠️  CRON_SCHEDULE inválido: "${CRON_SCHEDULE}". Cron desativado.`);
+    return;
+  }
+
+  cron.schedule(CRON_SCHEDULE, async () => {
+    console.log(`\n⏰ [CRON] Iniciando análise automática — ${new Date().toLocaleString('pt-BR')}`);
+    try {
+      const resultado = await executarAnalise('cron');
+      console.log(`✅ [CRON] Análise salva com ${resultado.acoes.length} ações e ${resultado.fiis.length} FIIs`);
+    } catch (e) {
+      console.error(`❌ [CRON] Erro na análise automática:`, e.message);
+    }
+  }, { timezone: 'America/Sao_Paulo' });
+
+  console.log(`⏰ Cron ativo: "${CRON_SCHEDULE}" (fuso: America/Sao_Paulo)`);
+}
+
 // ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`\n🚀 RADAR-B3 Backend rodando na porta ${PORT}`);
-  console.log(`   Modelo : ${GEMINI_MODEL}`);
-  console.log(`   API Key: ${GEMINI_API_KEY ? '✓ configurada' : '✗ FALTANDO — edite o .env'}`);
-  console.log(`   Busca  : ${SEARCH_ENABLED ? 'ativada' : 'desativada'}\n`);
+async function start() {
+  await initDB();
+
+  app.listen(PORT, () => {
+    console.log(`\n🚀 RADAR-B3 Backend rodando na porta ${PORT}`);
+    console.log(`   Modelo : ${GEMINI_MODEL}`);
+    console.log(`   API Key: ${GEMINI_API_KEY ? '✓ configurada' : '✗ FALTANDO — edite o .env'}`);
+    console.log(`   Busca  : ${SEARCH_ENABLED ? 'ativada' : 'desativada'}`);
+  });
+
+  iniciarCron();
+}
+
+start().catch(err => {
+  console.error('Falha ao iniciar:', err);
+  process.exit(1);
 });

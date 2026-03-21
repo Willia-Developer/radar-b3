@@ -1,0 +1,282 @@
+Perfeito. Agora ficou muito claro o objetivo real do app:
+
+Objetivo do seu Radar B3
+
+Não é ser um terminal Bloomberg.
+Não é ser uma plataforma regulada.
+Não é substituir análise humana.
+
+É isto:
+
+testar a capacidade da IA de selecionar, priorizar e justificar oportunidades com base em dados e regras definidas, e medir a assertividade dessas análises ao longo do tempo.
+
+Isso é um objetivo excelente para projeto pessoal e portfólio.
+
+E, sinceramente, fica até mais interessante assim.
+
+O que isso muda na arquitetura
+
+Você não precisa buscar “perfeição institucional” agora.
+Você precisa buscar:
+
+consistência
+rastreabilidade
+comparação histórica
+método
+evolução do modelo
+
+Ou seja, o app tem que permitir responder depois:
+
+quais ativos a IA escolheu?
+por que escolheu?
+com quais métricas?
+em que data?
+o que aconteceu depois?
+
+Aí sim você começa a medir assertividade de verdade.
+
+Caminho certo para o seu projeto
+Nível 1 — agora
+
+Manter o que já está funcionando, mas melhorar a qualidade analítica.
+
+Fazer agora:
+melhorar prompt
+padronizar saída
+tratar N/A
+diferenciar FII de papel vs tijolo
+incluir:
+por_que_entrou
+pontos_de_atencao
+score_breakdown
+Nível 2 — semi-profissional
+
+Aqui o projeto começa a ficar realmente forte.
+
+Ideia
+
+Criar uma camada simples de dados próprios com:
+
+cache local
+atualização 1x por dia
+poucos tickers por vez
+fallback quando faltar dado
+histórico das respostas da IA
+Isso te dá 2 ganhos enormes:
+1. melhora a qualidade da análise
+
+porque a IA passa a receber dados mais organizados
+
+2. permite testar assertividade
+
+porque você começa a salvar o que foi recomendado em cada data
+
+Nível 3 — profissional
+
+Depois você troca ou amplia a origem dos dados com fonte mais sólida/licença melhor, e mantém a IA só como cérebro analítico.
+
+O que eu recomendo fazer já
+Fase A — melhorar o cérebro
+
+Ajustar a IA para não ser apenas filtro, e sim analista seletivo.
+
+Regras:
+usar parâmetros mínimos
+priorizar qualidade sobre yield bruto
+escolher os melhores entre os elegíveis
+justificar seleção
+nunca inventar dado
+usar N/A quando faltar confiança
+Fase B — começar a medir
+
+Isso aqui é crucial para o objetivo do seu app.
+
+Você precisa salvar cada rodada com:
+data/hora
+tickers escolhidos
+métricas usadas
+score
+tese
+pontos de atenção
+prompt usado
+modelo usado
+
+Porque sem isso, depois você não consegue testar se a IA acertou ou não.
+
+Como medir a assertividade da IA
+
+Esse é o ponto mais interessante do projeto.
+
+Você pode criar depois uma aba tipo:
+
+“Desempenho histórico do radar”
+
+E comparar:
+
+para ações
+retorno em 7 dias
+retorno em 30 dias
+retorno em 90 dias
+dividendos anunciados depois
+manutenção ou deterioração dos fundamentos
+para FIIs
+performance de preço
+manutenção da distribuição
+mudança de vacância
+alteração do P/VP
+novas emissões/eventos
+O que salvar no banco
+
+Mesmo no começo, eu faria isso com SQLite.
+
+Tabelas simples
+analysis_runs
+id
+created_at
+asset_type (acao / fii)
+ticker
+nome
+segmento_setor
+preco
+dy
+pvp
+pl
+roe
+payout
+vacancia
+trap
+historico
+score
+tese
+por_que_entrou
+pontos_de_atencao
+raw_json
+model
+prompt_version
+snapshots
+id
+ticker
+captured_at
+preco
+dy
+pvp
+pl
+roe
+payout
+vacancia
+performance_tracking
+id
+analysis_run_id
+ticker
+price_d1
+price_d7
+price_d30
+price_d90
+result_d7
+result_d30
+result_d90
+Melhor desenho para o seu caso
+Fluxo ideal
+Coleta de dados
+    ↓
+Cache local / banco
+    ↓
+IA analisa os melhores elegíveis
+    ↓
+UI mostra
+    ↓
+Sistema salva a análise
+    ↓
+Depois compara com o futuro
+
+Isso aqui transforma seu app em um laboratório de assertividade da IA.
+
+O que eu faria tecnicamente
+Stack
+frontend: React/Vite
+backend: Node/Express
+processo: PM2
+acesso: Tailscale
+banco: SQLite agora
+agendamento: cron job ou node-cron
+IA: Gemini
+cache: banco local + JSON se quiser redundância
+Ordem de implementação
+Etapa 1
+
+Melhorar o prompt e o formato de saída.
+
+Etapa 2
+
+Salvar cada análise no banco.
+
+Etapa 3
+
+Criar rotina diária para atualizar poucos tickers.
+
+Etapa 4
+
+Criar tela de histórico.
+
+Etapa 5
+
+Criar tela de comparação de desempenho.
+
+O que eu não faria agora
+painel multiusuário
+autenticação complexa
+API pública
+integração pesada logo de início
+dezenas de fontes de dados
+automação exagerada
+
+Porque isso desviaria do principal:
+validar a qualidade da análise da IA.
+
+Meu veredito sobre sua ideia
+
+Ela ficou melhor agora que você deixou o propósito explícito.
+
+Porque o app deixa de ser “mais um radar de dividendos” e vira:
+
+um sistema privado para testar, registrar e comparar a qualidade analítica da IA aplicada à B3.
+
+Isso tem muito mais identidade.
+
+Próximo passo certo
+
+Eu sugiro seguir exatamente nesta ordem:
+
+1.
+
+Fechar o prompt final
+
+2.
+
+Definir o JSON final padrão
+
+3.
+
+Adicionar persistência em SQLite
+
+4.
+
+Salvar toda análise gerada
+
+5.
+
+Criar depois a comparação histórica
+
+Minha recomendação objetiva
+
+Agora não mexa em 10 coisas ao mesmo tempo.
+Faça o projeto ganhar espinha dorsal:
+
+entrada padronizada
+análise padronizada
+saída padronizada
+persistência
+
+Sem isso, você terá só uma interface bonita.
+
+Com isso, você terá um sistema evolutivo.
