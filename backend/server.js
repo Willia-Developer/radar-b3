@@ -62,15 +62,46 @@ Formato exato:
 ${format}`;
 }
 
-function extrairJSON(texto) {
+function limparTextoJSON(texto) {
+  return String(texto || '')
+    .replace(/```json/gi, '```')
+    .replace(/```/g, '')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .trim();
+}
+
+function repararJSON(candidato) {
+  return candidato
+    .replace(/,\s*([}\]])/g, '$1')
+    .replace(/\u00A0/g, ' ')
+    .trim();
+}
+
+function validarGrupo(groupKey, dados) {
+  if (!dados || typeof dados !== 'object') return null;
+
+  if (groupKey === 'acoes' && Array.isArray(dados.acoes)) {
+    return { acoes: dados.acoes };
+  }
+
+  if (groupKey === 'fiis' && Array.isArray(dados.fiis)) {
+    return { fiis: dados.fiis };
+  }
+
+  return null;
+}
+
+function extrairJSON(texto, groupKey) {
+  const textoLimpo = limparTextoJSON(texto);
   const candidatos = [];
   let depth = 0, inicio = -1;
-  for (let i = 0; i < texto.length; i++) {
-    if (texto[i] === '{') { if (depth === 0) inicio = i; depth++; }
-    else if (texto[i] === '}') {
+  for (let i = 0; i < textoLimpo.length; i++) {
+    if (textoLimpo[i] === '{') { if (depth === 0) inicio = i; depth++; }
+    else if (textoLimpo[i] === '}') {
       depth--;
       if (depth === 0 && inicio >= 0) {
-        candidatos.push(texto.slice(inicio, i + 1));
+        candidatos.push(textoLimpo.slice(inicio, i + 1));
         inicio = -1;
       }
     }
@@ -79,7 +110,13 @@ function extrairJSON(texto) {
   for (const c of candidatos) {
     try {
       const p = JSON.parse(c);
-      if (Array.isArray(p.acoes) || Array.isArray(p.fiis)) return p;
+      const validado = validarGrupo(groupKey, p);
+      if (validado) return validado;
+    } catch {}
+    try {
+      const p = JSON.parse(repararJSON(c));
+      const validado = validarGrupo(groupKey, p);
+      if (validado) return validado;
     } catch {}
   }
   return null;
@@ -120,7 +157,21 @@ async function buscarGrupo(groupKey) {
   const texto = await chamarGemini(prompt, SEARCH_ENABLED)
     .catch(() => chamarGemini(prompt, false));
 
-  const dados = extrairJSON(texto);
+  let dados = extrairJSON(texto, groupKey);
+  if (dados) return dados;
+
+  const promptCorrecao = `${prompt}
+
+ATENCAO FINAL:
+- responda com JSON valido
+- nao use markdown
+- nao use bloco \`\`\`
+- nao escreva explicacoes
+- nao deixe virgula sobrando
+- a raiz deve conter apenas a chave "${groupKey}"`;
+
+  const textoCorrigido = await chamarGemini(promptCorrecao, false);
+  dados = extrairJSON(textoCorrigido, groupKey);
   if (!dados) throw new Error(`JSON invalido para ${groupKey}`);
   return dados;
 }
