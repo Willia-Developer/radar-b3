@@ -14,6 +14,9 @@ VERDE="\033[0;32m"
 AMARELO="\033[1;33m"
 VERMELHO="\033[0;31m"
 RESET="\033[0m"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+BACKEND_DIR="${SCRIPT_DIR}/backend"
+FRONTEND_DIR="${SCRIPT_DIR}/frontend"
 
 ok()   { echo -e "${VERDE}✓ $1${RESET}"; }
 info() { echo -e "${AMARELO}→ $1${RESET}"; }
@@ -54,7 +57,10 @@ ok "PM2 instalado"
 
 # ── 4. Instalar dependências do backend ──────────────────────────────────────
 info "Instalando dependências do backend..."
-cd "$(dirname "$0")/backend"
+if [ ! -d "$BACKEND_DIR" ]; then
+    erro "Pasta backend/ nao encontrada em ${SCRIPT_DIR}. Execute o deploy na raiz do projeto completo."
+fi
+cd "$BACKEND_DIR"
 npm install --production
 ok "Backend: dependências instaladas"
 
@@ -84,14 +90,20 @@ ok "API Key configurada"
 
 # ── 6. Build do frontend ─────────────────────────────────────────────────────
 info "Buildando o frontend React..."
-cd "$(dirname "$0")/frontend"
+if [ ! -d "$FRONTEND_DIR" ]; then
+    erro "Pasta frontend/ nao encontrada em ${SCRIPT_DIR}. Envie ou clone o projeto completo na VPS antes de rodar ./deploy.sh."
+fi
+if [ ! -f "${FRONTEND_DIR}/package.json" ]; then
+    erro "frontend/package.json nao encontrado. O diretorio frontend/ parece incompleto."
+fi
+cd "$FRONTEND_DIR"
 npm install
 npm run build
 ok "Frontend buildado em frontend/dist/"
 
 # ── 7. Configurar Nginx ──────────────────────────────────────────────────────
 info "Configurando Nginx..."
-PROJ_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJ_DIR="$SCRIPT_DIR"
 
 sudo tee /etc/nginx/sites-available/radar-b3 > /dev/null <<EOF
 server {
@@ -129,7 +141,7 @@ ok "Nginx configurado"
 
 # ── 8. Iniciar backend com PM2 ───────────────────────────────────────────────
 info "Iniciando backend com PM2..."
-cd "$(dirname "$0")/backend"
+cd "$BACKEND_DIR"
 
 pm2 delete radar-b3 2>/dev/null || true
 pm2 start server.js --name radar-b3
