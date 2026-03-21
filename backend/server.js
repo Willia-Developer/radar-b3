@@ -33,33 +33,107 @@ function hoje() {
   return new Date().toLocaleDateString('pt-BR');
 }
 
-function buildPrompt(groupKey) {
-  const isAcoes     = groupKey === 'acoes';
-  const targetLabel = isAcoes ? 'acoes' : 'FIIs';
-  const targetLine  = isAcoes
-    ? 'Retorne exatamente 4 acoes da B3 com DY >= 10%.'
-    : 'Retorne exatamente 4 FIIs da B3 com DY >= 10%.';
-  const diversityLine = isAcoes
-    ? 'Garanta ao menos 3 setores diferentes.'
-    : 'Garanta ao menos 3 segmentos diferentes.';
-  const format = isAcoes
-    ? '{"acoes":[{"ticker":"XXXX3","nome":"Nome","setor":"Setor","preco":"R$ 00,00","pl":"0.0","roe":"00%","dy":"10%","margem_liquida":"00%","margem_ebitda":"00%","divida_ebitda":"0.0","payout":"00%","historico_dividendos":"Estavel","tendencia_receita":"Alta","tendencia_lucro":"Estavel","tendencia_dividendos":"Alta","risco_dividend_trap":"Baixo","comparacao_setorial":"Melhor que pares","score":85,"motivo":"Justificativa curta"}]}'
-    : '{"fiis":[{"ticker":"XXXX11","nome":"Nome","segmento":"Segmento","preco":"R$ 00,00","pvp":"0.00","dy":"10%","vacancia":"0%","tipo_contrato":"Atipico","historico_rendimentos":"Estavel","qualidade_ativos":"Ativos fortes","tendencia_dividendos":"Estavel","risco_dividend_trap":"Baixo","comparacao_segmento":"Melhor que pares","score":85,"motivo":"Justificativa curta"}]}';
+function buildPromptAcoes() {
+  return `Voce e um analista criterioso de acoes da B3, com foco em renda passiva conservadora. Data: ${hoje()}.
+${SEARCH_ENABLED ? 'Use busca na web para validar dados reais e atuais antes de responder.' : ''}
 
-  return `Analise ${targetLabel} da B3 em ${hoje()} para perfil conservador.
-${SEARCH_ENABLED ? 'Valide com dados online atuais antes de responder.' : ''}
-${targetLine}
-Elimine dividend trap, payout insustentavel, eventos nao recorrentes e deterioracao operacional.
-${diversityLine}
-Considere historico e tendencia, nao so a fotografia atual.
-Use score de 0 a 100 por classe.
-Motivo curto e objetivo (maximo 60 caracteres).
-Campos textuais devem ser extremamente curtos, de preferencia 2 a 6 palavras.
-Quando um indicador nao se aplicar, use "N/A".
+OBJETIVO: Selecionar as 4 MELHORES acoes da B3 para renda passiva conservadora.
+Pense como um comite seletivo. Entre varios ativos aprovados, escolha apenas os que voce defenderia com mais conviccao.
+
+CRITERIOS MINIMOS OBRIGATORIOS:
+- Dividend Yield >= 10%
+- P/L < 15
+- ROE >= 12%
+- Payout < 90% (salvo excecoes muito bem justificadas)
+- Divida/EBITDA < 3.0 quando aplicavel
+- Ao menos 3 setores diferentes
+
+APOS FILTRAR, faca uma segunda analise qualitativa e escolha SOMENTE as 4 melhores com base em:
+- sustentabilidade dos dividendos
+- previsibilidade de geracao de caixa/lucro
+- historico de distribuicao
+- forca operacional e resiliencia do setor
+- valuation relativo e comparacao com pares
+- risco de dividend trap
+
+EVITE ativos com:
+- DY elevado por distorcao temporaria ou evento pontual
+- payout excessivamente pressionado
+- lucro fragil ou inconsistente
+- endividamento preocupante
+- deterioracao operacional
+
+CAMPOS: retorne exatamente estes campos para cada acao:
+- ticker, nome, setor, preco, pl, roe, payout, margem_liquida, margem_ebitda, divida_ebitda, dy
+- trap (risco de dividend trap: "Baixo", "Medio" ou "Alto")
+- historico (historico de dividendos, 2-6 palavras)
+- tendencia_receita, tendencia_lucro, tendencia_dividendos (2-4 palavras cada)
+- comparativo_setorial (posicao vs pares, 3-8 palavras)
+- score (0-100)
+- score_breakdown (array de 3-4 strings curtas justificando o score)
+- tese (por que entrou no radar, 1-2 frases curtas)
+- pontos_de_atencao (riscos ou limitacoes, 1-2 frases curtas)
+
+Se nao houver dado confiavel, use "N/A". Nunca invente numeros.
 Retorne somente JSON puro, sem markdown e sem texto extra.
 
 Formato exato:
-${format}`;
+{"acoes":[{"ticker":"XXXX3","nome":"Nome","setor":"Setor","preco":"R$ 00,00","pl":"0.0","roe":"00%","dy":"10%","payout":"00%","margem_liquida":"00%","margem_ebitda":"00%","divida_ebitda":"0.0","trap":"Baixo","historico":"Consistente 5 anos","tendencia_receita":"Crescente","tendencia_lucro":"Estavel","tendencia_dividendos":"Crescente","comparativo_setorial":"Melhor DY do setor","score":85,"score_breakdown":["DY sustentavel","Payout controlado","ROE alto"],"tese":"DY atrativo com previsibilidade e historico consistente.","pontos_de_atencao":"Setor regulado, crescimento limitado."}]}`;
+}
+
+function buildPromptFiis() {
+  return `Voce e um analista criterioso de FIIs da B3, com foco em renda passiva conservadora. Data: ${hoje()}.
+${SEARCH_ENABLED ? 'Use busca na web para validar dados reais e atuais antes de responder.' : ''}
+
+OBJETIVO: Selecionar os 4 MELHORES FIIs da B3 para renda passiva conservadora.
+Pense como um comite seletivo. Entre varios ativos aprovados, escolha apenas os que voce defenderia com mais conviccao.
+
+CRITERIOS MINIMOS:
+- Dividend Yield >= 10%
+- P/VP < 1.2 (salvo excecoes bem justificadas)
+- Vacancia < 12% quando aplicavel (FIIs de papel: vacancia = "Nao aplicavel")
+- Preferir contratos defensivos e portfolios de qualidade
+- Ao menos 3 segmentos diferentes
+
+ATENCAO:
+- Nao trate FIIs de papel/CRI como FIIs de tijolo.
+- Para FIIs de papel, vacancia deve ser "Nao aplicavel".
+- Para FIIs hibridos, interprete metricas com contexto.
+
+APOS FILTRAR, faca uma segunda analise qualitativa e escolha SOMENTE os 4 melhores com base em:
+- previsibilidade dos rendimentos
+- qualidade do portfolio
+- resiliencia da tese
+- risco de armadilha de dividendo
+- historico de distribuicao
+- diversificacao e atratividade relativa frente aos pares
+
+EVITE FIIs com:
+- rendimento inflado por evento nao recorrente
+- ativos fracos ou concentracao excessiva
+- risco de deterioracao operacional
+- historico ruim de previsibilidade
+
+CAMPOS: retorne exatamente estes campos para cada FII:
+- ticker, nome, segmento, preco, pvp, dy
+- vacancia (ou "Nao aplicavel" para FIIs de papel)
+- contrato (tipo de contrato: "Atipico", "Tipico", "Misto", "N/A")
+- trap (risco de dividend trap: "Baixo", "Medio" ou "Alto")
+- historico (historico de rendimentos, 2-6 palavras)
+- qualidade (qualidade dos ativos, 2-6 palavras)
+- tendencia_dividendos (2-4 palavras)
+- comparativo_segmento (posicao vs pares, 3-8 palavras)
+- score (0-100)
+- score_breakdown (array de 3-4 strings curtas justificando o score)
+- tese (por que entrou no radar, 1-2 frases curtas)
+- pontos_de_atencao (riscos ou limitacoes, 1-2 frases curtas)
+
+Se nao houver dado confiavel, use "N/A". Nunca invente numeros.
+Para FIIs de papel, vacancia = "Nao aplicavel".
+Retorne somente JSON puro, sem markdown e sem texto extra.
+
+Formato exato:
+{"fiis":[{"ticker":"XXXX11","nome":"Nome","segmento":"Segmento","preco":"R$ 00,00","pvp":"0.00","dy":"10%","vacancia":"3%","contrato":"Atipico","trap":"Baixo","historico":"Estavel e crescente","qualidade":"Galp. classe A bem localizados","tendencia_dividendos":"Estavel","comparativo_segmento":"Melhor DY do segmento","score":88,"score_breakdown":["Portfolio premium","Vacancia minima","Contratos atipicos"],"tese":"Portfolio premium com contratos defensivos e rendimento previsivel.","pontos_de_atencao":"Concentracao em SP, menor liquidez."}]}`;
 }
 
 function limparTextoJSON(texto) {
@@ -151,7 +225,7 @@ async function chamarGemini(prompt, comBusca = true) {
 }
 
 async function buscarGrupo(groupKey) {
-  const prompt = buildPrompt(groupKey);
+  const prompt = groupKey === 'acoes' ? buildPromptAcoes() : buildPromptFiis();
 
   // Tenta com busca na web; se falhar, tenta sem
   const texto = await chamarGemini(prompt, SEARCH_ENABLED)

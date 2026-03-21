@@ -187,18 +187,30 @@ function App() {
                     <div className="metric"><span className="metric-label">Margem Liq.</span><span className={metricClass(item.margem_liquida,"margin")}>{item.margem_liquida||"-"}</span></div>
                     <div className="metric"><span className="metric-label">Margem EBITDA</span><span className={metricClass(item.margem_ebitda,"margin")}>{item.margem_ebitda||"-"}</span></div>
                     <div className="metric"><span className="metric-label">Divida/EBITDA</span><span className={metricClass(item.divida_ebitda,"debt")}>{item.divida_ebitda||"-"}</span></div>
-                    <div className="metric"><span className="metric-label">Trap</span><span className={trapClass(item.risco_dividend_trap)}>{item.risco_dividend_trap||"-"}</span></div>
-                    <div className="metric metric-stack"><span className="metric-label">Historico</span><span>{item.historico_dividendos||"-"}</span></div>
+                    <div className="metric"><span className="metric-label">Trap</span><span className={trapClass(item.trap)}>{item.trap||"-"}</span></div>
+                    <div className="metric metric-stack"><span className="metric-label">Historico</span><span>{item.historico||"-"}</span></div>
                     <div className="metric metric-stack"><span className="metric-label">Tend. Receita</span><span>{item.tendencia_receita||"-"}</span></div>
                     <div className="metric metric-stack"><span className="metric-label">Tend. Lucro</span><span>{item.tendencia_lucro||"-"}</span></div>
                     <div className="metric metric-stack"><span className="metric-label">Tend. Dividendos</span><span>{item.tendencia_dividendos||"-"}</span></div>
-                    <div className="metric metric-stack"><span className="metric-label">Comp. Setorial</span><span>{item.comparacao_setorial||"-"}</span></div>
+                    <div className="metric metric-stack"><span className="metric-label">Comp. Setorial</span><span>{item.comparativo_setorial||"-"}</span></div>
                   </div>
                   <div className="score-track">
                     <div className={`score-fill ${scoreClass(item.score)}`} style={{width:`${item.score}%`}} />
                   </div>
                   <div className="score-row"><span>Score</span><span>{item.score}/100</span></div>
-                  <p className="reason">{item.motivo}</p>
+                  {item.score_breakdown && Array.isArray(item.score_breakdown) && (
+                    <div className="score-breakdown">
+                      {item.score_breakdown.map((r, i) => <span key={i} className="score-tag">{r}</span>)}
+                    </div>
+                  )}
+                  <div className="card-insight tese-block">
+                    <div className="insight-label">Por que entrou no radar</div>
+                    <p>{item.tese || item.motivo || "-"}</p>
+                  </div>
+                  <div className="card-insight atencao-block">
+                    <div className="insight-label">Pontos de atencao</div>
+                    <p>{item.pontos_de_atencao || "-"}</p>
+                  </div>
                 </article>
               ))}
             </div>
@@ -221,18 +233,30 @@ function App() {
                     <div className="metric"><span className="metric-label">P/VP</span><span className={metricClass(item.pvp,"pvp-fii")}>{item.pvp}</span></div>
                     <div className="metric"><span className="metric-label">DY</span><span className={metricClass(item.dy,"dy")}>{item.dy}</span></div>
                     <div className="metric"><span className="metric-label">Vacancia</span><span className={metricClass(item.vacancia,"vacancia")}>{item.vacancia}</span></div>
-                    <div className="metric"><span className="metric-label">Contrato</span><span>{item.tipo_contrato||"-"}</span></div>
-                    <div className="metric"><span className="metric-label">Trap</span><span className={trapClass(item.risco_dividend_trap)}>{item.risco_dividend_trap||"-"}</span></div>
-                    <div className="metric metric-stack"><span className="metric-label">Historico</span><span>{item.historico_rendimentos||"-"}</span></div>
-                    <div className="metric metric-stack"><span className="metric-label">Qualidade</span><span>{item.qualidade_ativos||"-"}</span></div>
+                    <div className="metric"><span className="metric-label">Contrato</span><span>{item.contrato||"-"}</span></div>
+                    <div className="metric"><span className="metric-label">Trap</span><span className={trapClass(item.trap)}>{item.trap||"-"}</span></div>
+                    <div className="metric metric-stack"><span className="metric-label">Historico</span><span>{item.historico||"-"}</span></div>
+                    <div className="metric metric-stack"><span className="metric-label">Qualidade</span><span>{item.qualidade||"-"}</span></div>
                     <div className="metric metric-stack"><span className="metric-label">Tend. Dividendos</span><span>{item.tendencia_dividendos||"-"}</span></div>
-                    <div className="metric metric-stack"><span className="metric-label">Comp. Segmento</span><span>{item.comparacao_segmento||"-"}</span></div>
+                    <div className="metric metric-stack"><span className="metric-label">Comp. Segmento</span><span>{item.comparativo_segmento||"-"}</span></div>
                   </div>
                   <div className="score-track">
                     <div className={`score-fill ${scoreClass(item.score)}`} style={{width:`${item.score}%`}} />
                   </div>
                   <div className="score-row"><span>Score</span><span>{item.score}/100</span></div>
-                  <p className="reason">{item.motivo}</p>
+                  {item.score_breakdown && Array.isArray(item.score_breakdown) && (
+                    <div className="score-breakdown">
+                      {item.score_breakdown.map((r, i) => <span key={i} className="score-tag">{r}</span>)}
+                    </div>
+                  )}
+                  <div className="card-insight tese-block">
+                    <div className="insight-label">Por que entrou no radar</div>
+                    <p>{item.tese || item.motivo || "-"}</p>
+                  </div>
+                  <div className="card-insight atencao-block">
+                    <div className="insight-label">Pontos de atencao</div>
+                    <p>{item.pontos_de_atencao || "-"}</p>
+                  </div>
                 </article>
               ))}
             </div>
